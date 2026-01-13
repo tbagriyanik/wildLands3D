@@ -175,6 +175,7 @@ export const SFX_URLS = {
   footstep_stone: 'https://codeskulptor-demos.commondatastorage.googleapis.com/descent/footstep_stone_1.mp3',
   footstep_water: 'https://assets.mixkit.co/sfx/preview/mixkit-splashing-in-puddles-2189.mp3',
   bird_ambient: 'https://assets.mixkit.co/sfx/preview/mixkit-forest-birds-singing-background-ambience-1210.mp3',
+  squirrel_ambient: 'https://assets.mixkit.co/sfx/preview/mixkit-squirrel-chatter-noise-1211.mp3',
   collect_wood: 'https://assets.mixkit.co/sfx/preview/mixkit-wood-hard-hit-2129.mp3',
   collect_stone: 'https://assets.mixkit.co/sfx/preview/mixkit-stone-hit-heavy-impact-2134.mp3',
   collect_meat: 'https://assets.mixkit.co/sfx/preview/mixkit-sword-impact-on-flesh-2616.mp3',

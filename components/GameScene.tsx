@@ -57,6 +57,8 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
   
   const propsRef = useRef({ onInteract, onCollect, onDrink, onCook, onShoot, onMovementChange, onPositionUpdate, onLockChange, isBowActive, isTorchActive, arrowCount, time, weather, sfxEnabled, isMobile });
   
+  const nextAmbientTimeRef = useRef<number>(Date.now() + 5000 + Math.random() * 10000);
+
   const playSFX = (url: string, volume = 0.4, randomizePitch = true) => {
     if (propsRef.current.sfxEnabled) {
       const sfx = new Audio(url);
@@ -196,7 +198,6 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     const torchHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.8, 4), new THREE.MeshStandardMaterial({ color: 0x4a3728 }));
     torchHandle.rotation.x = -Math.PI/4; torchGroup.add(torchHandle);
     
-    // STRONGER Torch Light (Upped Intensity to 120 and distance to 100)
     torchLightRef.current = new THREE.PointLight(0xffbb33, 120, 100);
     torchLightRef.current.position.set(0, 0.4, -0.4); 
     torchLightRef.current.castShadow = true;
@@ -294,6 +295,17 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
             sunLightRef.current.target.updateMatrixWorld();
         }
 
+        // Ambient wildlife sounds logic
+        if (now > nextAmbientTimeRef.current) {
+            const isDay = time > 500 && time < 1900;
+            if (isDay && propsRef.current.sfxEnabled) {
+                const sfx = Math.random() > 0.5 ? SFX_URLS.bird_ambient : SFX_URLS.squirrel_ambient;
+                playSFX(sfx, 0.15, true);
+            }
+            // Set next ambient sound time (between 10 to 30 seconds)
+            nextAmbientTimeRef.current = now + 10000 + Math.random() * 20000;
+        }
+
         if (torchLightRef.current && isTorchActive) torchLightRef.current.intensity = 110 + Math.random() * 20;
 
         campfireGroupRef.current.children.forEach(group => {
@@ -323,7 +335,6 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
           return true;
         });
 
-        // PROXIMITY PICKUP FOR ARROWS
         for (let i = groundedArrowsRef.current.length - 1; i >= 0; i--) {
             const arrow = groundedArrowsRef.current[i];
             if (camera.position.distanceTo(arrow.position) < 3.5) {

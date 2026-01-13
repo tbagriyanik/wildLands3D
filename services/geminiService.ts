@@ -4,16 +4,15 @@ import { GameState } from "../types";
 
 /**
  * Service to interact with the Gemini API for tactical survival advice.
- * Uses the @google/genai SDK following strict guidelines.
+ * API key is handled via process.env.API_KEY as per security guidelines.
  */
 
-// Initialize the GoogleGenAI with the API key from environment variables.
-// Always use a named parameter for the API key.
+// Initializing the AI client. process.env.API_KEY is pre-configured.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const getSurvivalAdvice = async (gameState: GameState): Promise<string> => {
   try {
-    // For basic text tasks like providing survival tips, 'gemini-3-flash-preview' is the optimal choice.
+    // Creating a fresh instance for the call to ensure context is correct
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `The player is currently in a survival situation in a game called "Wild Lands".
@@ -30,16 +29,15 @@ export const getSurvivalAdvice = async (gameState: GameState): Promise<string> =
         Provide ONE short sentence of urgent, helpful tactical advice in ${gameState.settings.language === 'tr' ? 'Turkish' : 'English'}.
         Make it sound like a seasoned survivalist mentor.`,
       config: {
-        systemInstruction: "You are an expert survival advisor. You provide extremely concise, actionable, and immersive advice based on the player's immediate needs and the environmental conditions.",
+        systemInstruction: "You are an expert survival advisor named 'Elder'. You provide extremely concise, actionable, and immersive advice based on the player's immediate needs and the environmental conditions. Do not use markdown, just plain text.",
         temperature: 0.8,
       },
     });
 
-    // Directly access the .text property (property access, not a function call).
-    return response.text || "Focus on staying alive.";
+    // Accessing the text property directly (property, not method)
+    return response.text?.trim() || "Stay focused on survival.";
   } catch (error) {
-    console.error("Gemini survival advice fetch failed:", error);
-    // Graceful fallback for API errors.
-    return gameState.settings.language === 'tr' ? "Hayatta kalmaya odaklan." : "Stay focused on survival.";
+    console.error("Gemini advice fetch failed:", error);
+    return gameState.settings.language === 'tr' ? "Vahşi doğada tetikte kal." : "Stay alert in the wildlands.";
   }
 };
