@@ -83,30 +83,31 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     campfires.forEach(cf => {
       const group = new THREE.Group();
       group.position.set(cf.x, 0, cf.z);
-      group.userData = { type: 'campfire', id: cf.id, isObstacle: true, radius: 1.2 };
+      group.userData = { type: 'campfire', id: cf.id, isObstacle: true, radius: 1.5 };
       
-      const logGeo = new THREE.CylinderGeometry(0.12, 0.12, 1.0, 6); 
-      const logMat = new THREE.MeshStandardMaterial({ color: 0x4a2e1b, roughness: 0.9 });
-      for(let i=0; i<5; i++) {
+      const logGeo = new THREE.CylinderGeometry(0.12, 0.12, 1.2, 6); 
+      const logMat = new THREE.MeshStandardMaterial({ color: 0x4a2e1b, roughness: 1.0 });
+      for(let i=0; i<6; i++) {
         const log = new THREE.Mesh(logGeo, logMat);
         log.rotation.x = Math.PI/2; 
-        log.rotation.z = (i * Math.PI * 2) / 5;
+        log.rotation.z = (i * Math.PI * 2) / 6;
         log.position.y = 0.05;
         log.castShadow = true; 
         group.add(log);
       }
 
-      const fireInner = new THREE.Mesh(new THREE.ConeGeometry(0.25, 1.2, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-      fireInner.position.y = 0.6; group.add(fireInner);
+      // Layered fire for volumetric look
+      const fireInner = new THREE.Mesh(new THREE.ConeGeometry(0.2, 1.4, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      fireInner.position.y = 0.7; group.add(fireInner);
       
-      const fireMid = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.9, 8), new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.9 }));
-      fireMid.position.y = 0.45; group.add(fireMid);
+      const fireMid = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.1, 8), new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.9 }));
+      fireMid.position.y = 0.55; group.add(fireMid);
 
-      const fireOuter = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.7, 8), new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0.7 }));
-      fireOuter.position.y = 0.35; group.add(fireOuter);
+      const fireOuter = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.8, 8), new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0.6 }));
+      fireOuter.position.y = 0.4; group.add(fireOuter);
       
-      const light = new THREE.PointLight(0xff7700, 30, 15); 
-      light.position.y = 1.0; 
+      const light = new THREE.PointLight(0xffaa00, 35, 20); 
+      light.position.y = 1.2; 
       light.castShadow = true; 
       group.add(light);
       
@@ -118,13 +119,13 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
 
   const createArrowMesh = () => {
     const group = new THREE.Group();
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.8, 6), new THREE.MeshStandardMaterial({ color: 0x6b3e1a }));
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.8, 6), new THREE.MeshStandardMaterial({ color: 0x6b3e1a }));
     group.add(shaft);
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 6), new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8 }));
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.1, 6), new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.9 }));
     tip.position.y = 0.45; group.add(tip);
-    const fletchingMat = new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
+    const fletchingMat = new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
     for(let i=0; i<3; i++) {
-      const f = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.15), fletchingMat);
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.12), fletchingMat);
       f.position.y = -0.3; f.rotation.y = (i * Math.PI * 2) / 3;
       f.position.x = 0.02 * Math.cos(f.rotation.y);
       f.position.z = 0.02 * Math.sin(f.rotation.y);
@@ -141,7 +142,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     tempCamSide.crossVectors(tempCamDir, new THREE.Vector3(0,1,0)).normalize();
     arrow.position.copy(cameraRef.current.position).add(tempCamDir.clone().multiplyScalar(0.7)).add(tempCamSide.clone().multiplyScalar(0.2));
       
-    const velocity = tempCamDir.clone().multiplyScalar(100);
+    const velocity = tempCamDir.clone().multiplyScalar(110);
     arrow.lookAt(arrow.position.clone().add(velocity)); 
     arrow.rotateX(Math.PI/2); 
     
@@ -186,7 +187,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     scene.add(critterGroupRef.current);
     scene.add(campfireGroupRef.current);
     scene.fog = new THREE.FogExp2(0x1a1a1a, 0.002);
-    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 2000);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 3000);
     camera.position.set(120, 1.8, 120); cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -198,47 +199,47 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     mountRef.current.appendChild(renderer.domElement);
 
-    // Better Sky Setup
     const sky = new Sky(); sky.scale.setScalar(450000); scene.add(sky); skyRef.current = sky;
-    const sunLight = new THREE.DirectionalLight(0xfffaf0, 1.6); sunLight.castShadow = true;
-    sunLight.shadow.mapSize.set(1024, 1024);
-    sunLight.shadow.camera.left = sunLight.shadow.camera.bottom = -500;
-    sunLight.shadow.camera.right = sunLight.shadow.camera.top = 500;
+    const sunLight = new THREE.DirectionalLight(0xfffaf0, 1.8); sunLight.castShadow = true;
+    sunLight.shadow.mapSize.set(2048, 2048);
+    sunLight.shadow.camera.left = sunLight.shadow.camera.bottom = -600;
+    sunLight.shadow.camera.right = sunLight.shadow.camera.top = 600;
     scene.add(sunLight); sunLightRef.current = sunLight;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4); 
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); 
     scene.add(ambientLight); ambientLightRef.current = ambientLight;
 
-    const torchLight = new THREE.PointLight(0xff9900, 0, 40); 
+    const torchLight = new THREE.PointLight(0xffaa00, 0, 45); 
     torchLight.castShadow = true;
     scene.add(torchLight); torchLightRef.current = torchLight;
 
-    // Hand Models (First Person View)
+    // Hand Models - Improved Placement (Right Hand)
     const bowModel = new THREE.Group();
-    const bowCurves = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.015, 8, 24, Math.PI), new THREE.MeshStandardMaterial({ color: 0x4a2e1b }));
+    const bowCurves = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.02, 8, 32, Math.PI), new THREE.MeshStandardMaterial({ color: 0x4a2e1b, roughness: 0.8 }));
     bowCurves.rotation.z = Math.PI / 2;
     bowModel.add(bowCurves);
-    const bowString = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, 0.8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    const bowString = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 1.0), new THREE.MeshBasicMaterial({ color: 0xdddddd }));
     bowModel.add(bowString);
-    bowModel.position.set(0.35, -0.4, -0.6);
-    bowModel.rotation.set(0.2, -0.2, 0);
+    bowModel.position.set(0.4, -0.45, -0.7); // Right hand, slightly forward
+    bowModel.rotation.set(0.1, -0.15, 0.05);
     camera.add(bowModel);
     bowInHandRef.current = bowModel;
 
     const torchModel = new THREE.Group();
-    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.6), new THREE.MeshStandardMaterial({ color: 0x5a3e2b }));
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.7), new THREE.MeshStandardMaterial({ color: 0x5a3e2b, roughness: 0.9 }));
     torchModel.add(handle);
-    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.03, 0.15), new THREE.MeshStandardMaterial({ color: 0x333333 }));
-    top.position.y = 0.3; torchModel.add(top);
-    const flame = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff7700 }));
-    flame.position.y = 0.42; torchModel.add(flame);
-    torchModel.position.set(0.45, -0.4, -0.6);
-    torchModel.rotation.set(-0.2, 0.2, 0);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.025, 0.15), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+    top.position.y = 0.35; torchModel.add(top);
+    // Pointed Flame (Alev gibi sivri)
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.25, 8), new THREE.MeshBasicMaterial({ color: 0xff8800 }));
+    flame.position.y = 0.5; torchModel.add(flame);
+    torchModel.position.set(0.45, -0.5, -0.8); // Right hand, further forward
+    torchModel.rotation.set(-0.3, 0.2, 0.1);
     camera.add(torchModel);
-    scene.add(camera); // Add camera to scene so child models follow
+    scene.add(camera); 
     torchInHandRef.current = torchModel;
 
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), new THREE.MeshStandardMaterial({ color: 0x1a2e1a, roughness: 1.0 }));
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(2500, 2500), new THREE.MeshStandardMaterial({ color: 0x1a2e1a, roughness: 1.0 }));
     ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 
     const createFoliageLOD = (x: number, z: number, type: string) => {
@@ -246,21 +247,21 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
         lod.position.set(x, 0, z);
         const barkMat = new THREE.MeshStandardMaterial({ color: 0x4a2e1b });
         if (type === 'tree' || type === 'appleTree') {
-            const h = 6 + Math.random() * 4;
+            const h = 7 + Math.random() * 5;
             const g0 = new THREE.Group();
-            const t0 = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.45, h, 6), barkMat); t0.position.y = h/2; t0.castShadow = true; g0.add(t0);
+            const t0 = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, h, 6), barkMat); t0.position.y = h/2; t0.castShadow = true; g0.add(t0);
             const foliageCol = type === 'appleTree' ? 0x2d5a27 : 0x1e3a1a;
-            const l0 = new THREE.Mesh(new THREE.ConeGeometry(3.5, 7, 6), new THREE.MeshStandardMaterial({ color: foliageCol })); l0.position.y = h+2; l0.castShadow = true; g0.add(l0);
-            lod.addLevel(g0, 0); lod.addLevel(new THREE.Group(), 180);
-            lod.userData = { type, isObstacle: true, radius: 0.8 };
+            const l0 = new THREE.Mesh(new THREE.ConeGeometry(4, 8, 6), new THREE.MeshStandardMaterial({ color: foliageCol })); l0.position.y = h+2.5; l0.castShadow = true; g0.add(l0);
+            lod.addLevel(g0, 0); lod.addLevel(new THREE.Group(), 200);
+            lod.userData = { type, isObstacle: true, radius: 1.0 };
         } else if (type === 'rock') {
-            const s = 1.2 + Math.random() * 0.8;
-            const r0 = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), new THREE.MeshStandardMaterial({ color: 0x777777 })); r0.position.y = s*0.4; r0.castShadow = true;
-            lod.addLevel(r0, 0); lod.addLevel(new THREE.Group(), 150);
-            lod.userData = { type, isObstacle: true, radius: s*0.7 };
+            const s = 1.3 + Math.random() * 1.0;
+            const r0 = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), new THREE.MeshStandardMaterial({ color: 0x666666 })); r0.position.y = s*0.4; r0.castShadow = true;
+            lod.addLevel(r0, 0); lod.addLevel(new THREE.Group(), 160);
+            lod.userData = { type, isObstacle: true, radius: s*0.8 };
         } else if (type === 'bush') {
-          const b = new THREE.Mesh(new THREE.IcosahedronGeometry(1.4, 0), new THREE.MeshStandardMaterial({ color: 0x2d5a27 }));
-          b.position.y = 0.7; lod.addLevel(b, 0); lod.addLevel(new THREE.Group(), 100);
+          const b = new THREE.Mesh(new THREE.IcosahedronGeometry(1.5, 0), new THREE.MeshStandardMaterial({ color: 0x2d5a27 }));
+          b.position.y = 0.75; lod.addLevel(b, 0); lod.addLevel(new THREE.Group(), 120);
           lod.userData = { type };
         }
         lod.updateMatrix(); lod.matrixAutoUpdate = false;
@@ -269,20 +270,20 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
 
     const createCritter = (x: number, z: number, type: string) => {
       const g = new THREE.Group(); g.position.set(x, 0, z);
-      const m = new THREE.Mesh(new THREE.SphereGeometry(0.2, 6, 6), new THREE.MeshStandardMaterial({ color: 0xaaaaaa }));
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.2, 6, 6), new THREE.MeshStandardMaterial({ color: 0xbbbbbb }));
       m.position.y = 0.2; m.castShadow = true; g.add(m);
-      g.userData = { type, targetX: x, targetZ: z, speed: 0.03 + Math.random()*0.03 };
+      g.userData = { type, speed: 0.04 + Math.random()*0.04 };
       critterGroupRef.current.add(g);
     };
 
-    for(let i=0; i<3500; i++) {
-        const x = (Math.random()-0.5)*1800, z = (Math.random()-0.5)*1800; 
-        if(Math.sqrt(x*x+z*z) < 20) continue;
+    for(let i=0; i<4000; i++) {
+        const x = (Math.random()-0.5)*2000, z = (Math.random()-0.5)*2000; 
+        if(Math.sqrt(x*x+z*z) < 25) continue;
         createFoliageLOD(x, z, ['tree', 'appleTree', 'bush', 'rock'][Math.floor(Math.random()*4)]);
     }
 
-    for(let i=0; i<150; i++) {
-      createCritter((Math.random()-0.5)*1000, (Math.random()-0.5)*1000, 'rabbit');
+    for(let i=0; i<180; i++) {
+      createCritter((Math.random()-0.5)*1200, (Math.random()-0.5)*1200, 'rabbit');
     }
 
     const controls = new PointerLockControls(camera, renderer.domElement); controlsRef.current = controls;
@@ -313,73 +314,97 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
         const delta = 0.016; 
         const { time, isTorchActive, isMobile, mobileInput } = propsRef.current;
         
-        // Better Day/Night Cycle
+        // Improved Dynamic Sky transition
         const phi = (time / 2400) * Math.PI * 2 - Math.PI / 2;
         const sunIntensity = Math.max(0, Math.sin(phi));
-        const nightIntensity = 1.0 - sunIntensity;
+        const eveningPhase = Math.max(0, 1.0 - Math.abs(Math.sin(phi))); // Twilight feel
 
         if (skyRef.current) {
           const uniforms = skyRef.current.material.uniforms;
-          uniforms['turbidity'].value = 10;
-          uniforms['rayleigh'].value = 3;
-          uniforms['mieCoefficient'].value = 0.005;
-          uniforms['mieDirectionalG'].value = 0.7;
+          uniforms['turbidity'].value = 10 + eveningPhase * 10;
+          uniforms['rayleigh'].value = 1.5 + eveningPhase * 4.0;
+          uniforms['mieCoefficient'].value = 0.005 + eveningPhase * 0.02;
+          uniforms['mieDirectionalG'].value = 0.8;
           
           tempVec.setFromSphericalCoords(1, Math.PI / 2 - phi, 0);
           uniforms['sunPosition'].value.copy(tempVec);
         }
 
         if (sunLightRef.current) {
-          sunLightRef.current.position.copy(tempVec).multiplyScalar(500);
-          sunLightRef.current.intensity = sunIntensity * 2.0;
-          sunLightRef.current.color.setHSL(0.1, 0.4, 0.5 + sunIntensity * 0.5);
+          sunLightRef.current.position.copy(tempVec).multiplyScalar(600);
+          sunLightRef.current.intensity = sunIntensity * 2.2;
+          // Warmer colors during sunset/sunrise
+          const sunsetColor = new THREE.Color().setHSL(0.08, 0.7, 0.6);
+          const daylightColor = new THREE.Color().setHSL(0.12, 0.2, 0.95);
+          sunLightRef.current.color.lerpColors(sunsetColor, daylightColor, sunIntensity);
         }
 
         if (ambientLightRef.current) {
-          ambientLightRef.current.intensity = 0.1 + sunIntensity * 0.5;
-          ambientLightRef.current.color.setHSL(0.6, 0.2, 0.4 + sunIntensity * 0.6);
+          ambientLightRef.current.intensity = 0.15 + sunIntensity * 0.6;
+          const ambientNight = new THREE.Color(0x0a0c1a);
+          const ambientDay = new THREE.Color(0xddeeff);
+          ambientLightRef.current.color.lerpColors(ambientNight, ambientDay, sunIntensity);
         }
 
         if (scene.fog instanceof THREE.FogExp2) {
-          const fogCol = new THREE.Color().setHSL(0.6, 0.2, 0.05 + sunIntensity * 0.15);
+          const fogCol = new THREE.Color().setHSL(0.6, 0.2, 0.02 + sunIntensity * 0.18);
           scene.fog.color.copy(fogCol);
           renderer.setClearColor(fogCol);
         }
 
-        // Torch and Animations
+        // Torch Light and Visuals
         if (torchLightRef.current) {
           if (isTorchActive) {
-            torchLightRef.current.position.copy(camera.position).add(tempCamDir.clone().multiplyScalar(0.5));
-            torchLightRef.current.intensity = 20 + Math.sin(now * 0.01) * 5;
+            torchLightRef.current.position.copy(camera.position).add(tempCamDir.clone().multiplyScalar(0.6));
+            torchLightRef.current.intensity = 25 + Math.sin(now * 0.012) * 6;
           }
         }
         
+        // Hand Item Sway and Animations
         if (isBowActive && bowInHandRef.current) {
-          bowInHandRef.current.position.y = -0.4 + Math.sin(now * 0.002) * 0.01;
+          bowInHandRef.current.position.y = -0.45 + Math.sin(now * 0.002) * 0.015;
+          bowInHandRef.current.position.x = 0.4 + Math.cos(now * 0.001) * 0.01;
         }
         if (isTorchActive && torchInHandRef.current) {
-          torchInHandRef.current.position.y = -0.4 + Math.sin(now * 0.0025) * 0.015;
+          torchInHandRef.current.position.y = -0.5 + Math.sin(now * 0.0022) * 0.02;
+          torchInHandRef.current.position.x = 0.45 + Math.cos(now * 0.0015) * 0.012;
           const f = torchInHandRef.current.children[2] as THREE.Mesh;
-          if (f) f.scale.setScalar(1 + Math.sin(now * 0.02) * 0.2);
+          if (f) {
+            f.scale.setScalar(0.9 + Math.sin(now * 0.03) * 0.25);
+            f.material.color.setHSL(0.08, 1.0, 0.5 + Math.sin(now * 0.05) * 0.2);
+          }
         }
 
-        // Projectiles
+        // Campfire Visual Flickering
+        campfireGroupRef.current.children.forEach(cf => {
+           const meshes = cf.userData.fireMeshes;
+           if (meshes) {
+             meshes.forEach((m: THREE.Mesh, i: number) => {
+               m.scale.setScalar(1 + Math.sin(now * 0.02 + i) * 0.15);
+               m.rotation.y += 0.02;
+             });
+             const light = cf.children.find(c => c instanceof THREE.PointLight) as THREE.PointLight;
+             if (light) light.intensity = 30 + Math.sin(now * 0.02) * 8;
+           }
+        });
+
+        // Projectiles Update
         const proj = (window as any).projectiles || [];
         (window as any).projectiles = proj.filter((p: any) => {
           if (p.isStuck) return true;
-          p.velocity.y -= 15 * delta;
+          p.velocity.y -= 16 * delta;
           p.mesh.position.add(p.velocity.clone().multiplyScalar(delta));
           p.mesh.lookAt(p.mesh.position.clone().add(p.velocity));
           p.mesh.rotateX(Math.PI/2);
           
           critterGroupRef.current.children.forEach(c => {
-            if (c.visible && c.position.distanceTo(p.mesh.position) < 1.0) {
+            if (c.visible && c.position.distanceTo(p.mesh.position) < 1.2) {
               c.visible = false; p.isStuck = true; playSFX(SFX_URLS.collect_meat, 0.8);
               propsRef.current.onCollect('Raw Meat');
             }
           });
           worldObjectsRef.current.forEach(o => {
-            if (o.visible && o.position.distanceTo(p.mesh.position) < (o.userData.radius || 1.2)) {
+            if (o.visible && o.position.distanceTo(p.mesh.position) < (o.userData.radius || 1.3)) {
               p.isStuck = true; playSFX(SFX_URLS.arrow_impact, 0.4);
             }
           });
@@ -392,7 +417,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
 
         // Picking up arrows
         for (let i = groundedArrowsRef.current.length - 1; i >= 0; i--) {
-            if (camera.position.distanceTo(groundedArrowsRef.current[i].position) < 4.0) { 
+            if (camera.position.distanceTo(groundedArrowsRef.current[i].position) < 4.5) { 
                 propsRef.current.onCollect('Arrow');
                 scene.remove(groundedArrowsRef.current[i]);
                 groundedArrowsRef.current.splice(i, 1);
@@ -402,25 +427,28 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
         // Mobile Rotation (Look)
         if (isMobile && (Math.abs(mobileInput.lookX) > 0 || Math.abs(mobileInput.lookY) > 0)) {
           euler.setFromQuaternion(camera.quaternion);
-          euler.y -= mobileInput.lookX * 0.006;
-          euler.x -= mobileInput.lookY * 0.006;
-          euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
+          euler.y -= mobileInput.lookX * 0.007;
+          euler.x -= mobileInput.lookY * 0.007;
+          euler.x = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, euler.x));
           camera.quaternion.setFromEuler(euler);
         }
 
-        // Movement
-        verticalVelocity -= 18 * delta; camera.position.y += verticalVelocity * delta;
+        // Movement with Sway
+        verticalVelocity -= 20 * delta; camera.position.y += verticalVelocity * delta;
         if(camera.position.y < 1.8) { verticalVelocity = 0; camera.position.y = 1.8; }
         const moveX = isMobile ? mobileInput.moveX : (Number(keys.d) - Number(keys.a));
         const moveY = isMobile ? mobileInput.moveY : (Number(keys.w) - Number(keys.s));
         const moving = Math.abs(moveX) > 0.1 || Math.abs(moveY) > 0.1;
         if(moving && (controls.isLocked || isMobile)) {
-            const s = (isMobile ? mobileInput.sprint : keys.shift) ? 30.0 : 13.5;
+            const sprintFactor = (isMobile ? mobileInput.sprint : keys.shift) ? 2.5 : 1.0;
+            const s = 13.5 * sprintFactor;
             camera.getWorldDirection(tempCamDir);
             tempCamSide.crossVectors(tempCamDir, new THREE.Vector3(0,1,0)).normalize();
             const forward = tempVec.set(tempCamDir.x, 0, tempCamDir.z).normalize();
             camera.position.add(forward.multiplyScalar(moveY * s * delta));
             camera.position.add(tempCamSide.multiplyScalar(moveX * s * delta));
+            // View bobbing
+            camera.position.y += Math.sin(now * 0.01 * sprintFactor) * 0.02;
         }
 
         camera.getWorldDirection(tempCamDir);

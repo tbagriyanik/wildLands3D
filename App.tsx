@@ -513,11 +513,11 @@ const App: React.FC = () => {
 
       {view === 'menu' && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950 p-4 overflow-hidden">
-          <div className="text-center w-full max-w-4xl animate-in fade-in zoom-in duration-700">
-            <h1 className="text-6xl sm:text-8xl md:text-[14rem] font-black mb-4 tracking-tighter italic text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-400 to-slate-800 drop-shadow-[0_20px_50px_rgba(0,0,0,0.8)] uppercase leading-[0.85] text-center select-none">
+          <div className="text-center w-full max-w-5xl animate-in fade-in zoom-in duration-700 px-4">
+            <h1 className="text-6xl sm:text-8xl md:text-9xl lg:text-[12rem] font-black mb-4 tracking-tighter italic text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-400 to-slate-800 drop-shadow-[0_20px_50px_rgba(0,0,0,0.8)] uppercase leading-[0.85] text-center select-none">
               WILD <br/> LANDS
             </h1>
-            <p className="text-indigo-500 font-mono tracking-[1.5em] mb-8 sm:mb-16 opacity-80 uppercase text-[10px] sm:text-sm">{t.tagline}</p>
+            <p className="text-indigo-500 font-mono tracking-[1em] sm:tracking-[1.5em] mb-8 sm:mb-16 opacity-80 uppercase text-[10px] sm:text-sm">{t.tagline}</p>
             <div className="flex flex-col gap-4 sm:gap-5 max-w-xs sm:max-w-md mx-auto">
               <button 
                 onClick={() => { setView('game'); playSFX(SFX_URLS.ui_click); }} 
@@ -526,8 +526,8 @@ const App: React.FC = () => {
                 <span className="relative z-10">{t.continue}</span>
                 <div className="absolute inset-0 bg-indigo-100 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
               </button>
-              <button onClick={restartGame} className="py-3 sm:py-5 bg-slate-900/50 hover:bg-slate-800 font-bold rounded-2xl sm:rounded-[2rem] border border-white/10 transition-all uppercase tracking-widest text-white/70 hover:text-white text-sm sm:base">{t.newGame}</button>
-              <button onClick={() => { setView('settings'); playSFX(SFX_URLS.ui_click); }} className="py-3 sm:py-5 bg-slate-900/50 hover:bg-slate-800 font-bold rounded-2xl sm:rounded-[2rem] border border-white/10 transition-all uppercase tracking-widest text-white/70 hover:text-white text-sm sm:base">{t.settings}</button>
+              <button onClick={restartGame} className="py-3 sm:py-5 bg-slate-900/50 hover:bg-slate-800 font-bold rounded-2xl sm:rounded-[2rem] border border-white/10 transition-all uppercase tracking-widest text-white/70 hover:text-white text-sm sm:text-base">{t.newGame}</button>
+              <button onClick={() => { setView('settings'); playSFX(SFX_URLS.ui_click); }} className="py-3 sm:py-5 bg-slate-900/50 hover:bg-slate-800 font-bold rounded-2xl sm:rounded-[2rem] border border-white/10 transition-all uppercase tracking-widest text-white/70 hover:text-white text-sm sm:text-base">{t.settings}</button>
             </div>
           </div>
         </div>

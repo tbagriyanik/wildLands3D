@@ -76,7 +76,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   const joystickRef = useRef<{ startX: number; startY: number; isActive: boolean }>({ startX: 0, startY: 0, isActive: false });
   const lookRef = useRef<{ lastX: number; lastY: number; isActive: boolean }>({ lastX: 0, lastY: 0, isActive: false });
 
-  // Mobile Joystick (Left side)
+  // Mobile Joystick (Left side) - Shrinked to fit better
   const handleJoystickStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
     joystickRef.current = { startX: touch.clientX, startY: touch.clientY, isActive: true };
@@ -87,10 +87,10 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
     const touch = e.touches[0];
     const dx = touch.clientX - joystickRef.current.startX;
     const dy = touch.clientY - joystickRef.current.startY;
-    const dist = Math.min(50, Math.sqrt(dx * dx + dy * dy));
+    const dist = Math.min(40, Math.sqrt(dx * dx + dy * dy));
     const angle = Math.atan2(dy, dx);
-    const moveX = (Math.cos(angle) * dist) / 50;
-    const moveY = -(Math.sin(angle) * dist) / 50;
+    const moveX = (Math.cos(angle) * dist) / 40;
+    const moveY = -(Math.sin(angle) * dist) / 40;
     onMobileInput(prev => ({ ...prev, moveX, moveY }));
   };
 
@@ -99,7 +99,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
     onMobileInput(prev => ({ ...prev, moveX: 0, moveY: 0 }));
   };
 
-  // Mobile Look (Right side)
+  // Mobile Look (Right side) - Shrinked to fit better
   const handleLookStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
     lookRef.current = { lastX: touch.clientX, lastY: touch.clientY, isActive: true };
@@ -113,7 +113,6 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
     lookRef.current.lastX = touch.clientX;
     lookRef.current.lastY = touch.clientY;
     onMobileInput(prev => ({ ...prev, lookX: dx, lookY: dy }));
-    // Reset deltas after the render cycle so they don't apply twice
     setTimeout(() => onMobileInput(prev => ({ ...prev, lookX: 0, lookY: 0 })), 0);
   };
 
@@ -336,41 +335,41 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         </div>
       </div>
 
-      {/* Mobile Controls (Added Joystick and Look Pad) */}
+      {/* Mobile Controls - Shrinked and better placed */}
       {isMobile && (
         <div className="absolute inset-0 pointer-events-none z-30">
           {/* Movement Joystick (Left) */}
           <div 
-            className="absolute bottom-12 left-12 w-40 h-40 bg-white/5 backdrop-blur-md rounded-full border-4 border-white/20 flex items-center justify-center pointer-events-auto touch-none shadow-2xl"
+            className="absolute bottom-10 left-6 w-28 h-28 bg-white/5 backdrop-blur-md rounded-full border-2 border-white/20 flex items-center justify-center pointer-events-auto touch-none shadow-2xl"
             onTouchStart={handleJoystickStart}
             onTouchMove={handleJoystickMove}
             onTouchEnd={handleJoystickEnd}
           >
-            <div className="w-16 h-16 bg-indigo-500 rounded-full border-4 border-white shadow-[0_0_20px_rgba(99,102,241,1)]" />
+            <div className="w-10 h-10 bg-indigo-500 rounded-full border-2 border-white shadow-[0_0_15px_rgba(99,102,241,0.8)]" />
           </div>
 
           {/* Look Area (Right) */}
           <div 
-            className="absolute bottom-12 right-12 w-48 h-48 bg-white/5 backdrop-blur-md rounded-3xl border-4 border-white/20 flex items-center justify-center pointer-events-auto touch-none shadow-2xl"
+            className="absolute bottom-10 right-6 w-32 h-32 bg-white/5 backdrop-blur-md rounded-2xl border-2 border-white/20 flex items-center justify-center pointer-events-auto touch-none shadow-2xl"
             onTouchStart={handleLookStart}
             onTouchMove={handleLookMove}
             onTouchEnd={handleLookEnd}
           >
-            <span className="text-[10px] font-black uppercase tracking-widest text-white/40">{t.look}</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{t.look}</span>
           </div>
         </div>
       )}
 
-      <div className="flex flex-col gap-4 z-10 w-full items-center mb-20 sm:mb-6">
-        <div className="bg-black/80 backdrop-blur-3xl p-2.5 rounded-2xl border border-white/10 flex gap-2.5 max-w-[95vw] sm:max-w-3xl overflow-x-auto no-scrollbar shadow-[0_20px_60px_rgba(0,0,0,0.8)] pointer-events-auto ring-1 ring-white/5">
+      <div className="flex flex-col gap-4 z-10 w-full items-center mb-6">
+        <div className="bg-black/80 backdrop-blur-3xl p-2 rounded-2xl border border-white/10 flex gap-2 max-w-[95vw] sm:max-w-3xl overflow-x-auto no-scrollbar shadow-[0_15px_45px_rgba(0,0,0,0.8)] pointer-events-auto ring-1 ring-white/5">
           {inventory.map((item, index) => (
             <button 
               key={item.id} 
               onClick={() => onUseItem(item.id)} 
-              className={`relative group min-w-[52px] h-[52px] sm:min-w-[64px] sm:h-[64px] bg-white/5 hover:bg-white/10 rounded-xl border-2 transition-all flex flex-col items-center justify-center active:scale-90 ${activeToolId === item.id ? 'border-indigo-500 bg-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.5)] scale-110 z-10' : 'border-white/5'} ${pulseItems[item.name] ? 'animate-item-pop border-indigo-400 shadow-[0_0_60px_rgba(99,102,241,1)] z-50' : ''}`}
+              className={`relative group min-w-[48px] h-[48px] sm:min-w-[64px] sm:h-[64px] bg-white/5 hover:bg-white/10 rounded-xl border-2 transition-all flex flex-col items-center justify-center active:scale-90 ${activeToolId === item.id ? 'border-indigo-500 bg-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.5)] scale-110 z-10' : 'border-white/5'} ${pulseItems[item.name] ? 'animate-item-pop border-indigo-400 shadow-[0_0_60px_rgba(99,102,241,1)] z-50' : ''}`}
             >
               {!isMobile && index < 9 && <span className="absolute top-0.5 left-1 text-[10px] font-black text-indigo-400">{index + 1}</span>}
-              <span className="text-2xl sm:text-3xl drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)] w-10 h-10 flex items-center justify-center">
+              <span className="text-xl sm:text-3xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] w-8 sm:w-10 h-8 sm:h-10 flex items-center justify-center">
                 {item.name === 'Wood' && '🪵'} {item.name === 'Berries' && '🍒'}
                 {item.name === 'Apple' && '🍎'} {item.name === 'Stone' && '🪨'}
                 {item.name === 'Flint Stone' && '🔥'} {item.name === 'Roasted Apple' && '🍢'}
@@ -379,13 +378,12 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                 {item.name === 'Arrow' && <ArrowIconSVG />}
                 {item.name === 'Bow' && '🏹'} {item.name === 'Torch' && '🔦'}
               </span>
-              <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-[10px] font-black w-6 h-6 flex items-center justify-center rounded-lg shadow-xl ring-2 ring-black/50">{item.count}</span>
+              <span className="absolute -top-1.5 -right-1.5 bg-indigo-600 text-white text-[9px] sm:text-[10px] font-black w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-lg shadow-xl ring-2 ring-black/50">{item.count}</span>
               
-              {/* Floating Delta Badges - EXTREMELY EXAGGERATED */}
               {deltas.filter(d => d.itemName === item.name).map(delta => (
                 <div 
                   key={delta.id} 
-                  className={`absolute -top-16 left-1/2 -translate-x-1/2 px-6 py-2.5 rounded-full font-black text-3xl z-[100] pointer-events-none shadow-[0_0_100px_rgba(0,0,0,1)] animate-delta-float border-4 ${
+                  className={`absolute -top-16 left-1/2 -translate-x-1/2 px-6 py-2.5 rounded-full font-black text-2xl sm:text-3xl z-[100] pointer-events-none shadow-[0_0_100px_rgba(0,0,0,1)] animate-delta-float border-4 ${
                     delta.amount > 0 
                     ? 'bg-green-500 border-green-200 text-white shadow-green-500/80' 
                     : 'bg-red-500 border-red-200 text-white shadow-red-500/80'
