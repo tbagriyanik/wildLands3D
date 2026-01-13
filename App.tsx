@@ -3,10 +3,34 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import GameScene, { GameSceneHandle } from './components/GameScene';
 import UIOverlay from './components/UIOverlay';
 import AIAdvisor from './components/AIAdvisor';
-import { GameState, InteractionTarget, MobileInput } from './types';
+import { GameState, InteractionTarget, MobileInput, InventoryItem } from './types';
 import { INITIAL_STATS, SURVIVAL_DECAY_RATES, TRANSLATIONS, SFX_URLS } from './constants';
 
 const SAVE_KEY = 'wildlands_survival_v18';
+
+// Priority sorting for items: Tools > Cooked Food > Raw Food > Resources
+const ITEM_PRIORITY: Record<string, number> = {
+  'Bow': 100,
+  'Torch': 99,
+  'Cooked Meat': 90,
+  'Roasted Apple': 89,
+  'Cooked Berries': 88,
+  'Raw Meat': 80,
+  'Apple': 79,
+  'Berries': 78,
+  'Arrow': 50,
+  'Flint Stone': 10,
+  'Wood': 5,
+  'Stone': 4
+};
+
+const sortInventory = (items: InventoryItem[]): InventoryItem[] => {
+  return [...items].sort((a, b) => {
+    const pA = ITEM_PRIORITY[a.name] || 0;
+    const pB = ITEM_PRIORITY[b.name] || 0;
+    return pB - pA;
+  });
+};
 
 const App: React.FC = () => {
   const [view, setView] = useState<'menu' | 'game' | 'settings'>('menu');
@@ -21,20 +45,21 @@ const App: React.FC = () => {
           ...parsed, 
           settings: parsed.settings || { language: 'en', musicEnabled: true, sfxEnabled: true },
           campfires: parsed.campfires || [],
-          activeTool: null
+          activeTool: null,
+          inventory: sortInventory(parsed.inventory || [])
         };
       } catch (e) { console.error("Save load failed:", e); }
     }
     return {
       stats: { ...INITIAL_STATS },
-      inventory: [
+      inventory: sortInventory([
         { id: '1', name: 'Flint Stone', type: 'resource', count: 3 },
         { id: '2', name: 'Wood', type: 'resource', count: 12 },
         { id: '3', name: 'Stone', type: 'resource', count: 8 },
         { id: '4', name: 'Apple', type: 'food', count: 5 },
         { id: '5', name: 'Raw Meat', type: 'food', count: 2 },
         { id: '6', name: 'Arrow', type: 'resource', count: 10 }
-      ],
+      ]),
       day: 1,
       time: 1000,
       settings: { language: 'en', musicEnabled: true, sfxEnabled: true },
@@ -49,6 +74,8 @@ const App: React.FC = () => {
   const [showTodoList, setShowTodoList] = useState(true);
   const [playerRotation, setPlayerRotation] = useState(0);
   const [activeToolId, setActiveToolId] = useState<string | null>(null);
+  const [cookingItem, setCookingItem] = useState<string | null>(null);
+  
   const todoTimeoutRef = useRef<number | null>(null);
   const cookingTimeoutRef = useRef<number | null>(null);
   
@@ -98,10 +125,6 @@ const App: React.FC = () => {
       gameAudioRef.current.loop = true;
       gameAudioRef.current.volume = 0.15;
     }
-    
-    const checkMobile = () => setIsMobile(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const playSFX = useCallback((url: string, volume = 0.4, randomizePitch = true) => {
@@ -109,7 +132,7 @@ const App: React.FC = () => {
       const sfx = new Audio(url);
       sfx.volume = volume;
       if (randomizePitch) sfx.playbackRate = 0.9 + Math.random() * 0.2;
-      sfx.play().catch(() => {});
+      sfx.play().catch(e => console.debug("Audio play failed (waiting for interaction):", e));
     }
   }, [gameState.settings.sfxEnabled]);
 
@@ -173,7 +196,7 @@ const App: React.FC = () => {
 
       if (!consumed) return prev;
       const newInventory = prev.inventory.map(i => i.id === itemId ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
-      return { ...prev, stats: newStats, inventory: newInventory };
+      return { ...prev, stats: newStats, inventory: sortInventory(newInventory) };
     });
   }, [playSFX]);
 
@@ -193,7 +216,7 @@ const App: React.FC = () => {
       const item = inv.find(i => i.name === type);
       if (item) item.count++;
       else inv.push({ id: Math.random().toString(), name: type, type: type === 'Wood' || type === 'Stone' || type === 'Arrow' ? 'resource' : 'food', count: 1 });
-      return { ...prev, inventory: inv };
+      return { ...prev, inventory: sortInventory(inv) };
     });
   };
 
@@ -221,7 +244,7 @@ const App: React.FC = () => {
           crafted = true;
           const spawnX = playerInfoRef.current.x + playerInfoRef.current.dirX * 2.5;
           const spawnZ = playerInfoRef.current.z + playerInfoRef.current.dirZ * 2.5;
-          return { ...prev, inventory: newInventory, campfires: [...prev.campfires, { id: Math.random().toString(), x: spawnX, z: spawnZ }]};
+          return { ...prev, inventory: sortInventory(newInventory), campfires: [...prev.campfires, { id: Math.random().toString(), x: spawnX, z: spawnZ }]};
         }
       } else if (type === 'arrows') {
         if (wood && wood.count >= 1) {
@@ -248,47 +271,53 @@ const App: React.FC = () => {
           crafted = true;
         }
       }
-      return crafted ? { ...prev, inventory: newInventory } : prev;
+      return crafted ? { ...prev, inventory: sortInventory(newInventory) } : prev;
     });
   }, [playSFX]);
 
   const handleCook = useCallback(() => {
     if (cookingTimeoutRef.current) return;
+    
+    const rawMeat = gameState.inventory.find(i => i.name === 'Raw Meat');
+    const apple = gameState.inventory.find(i => i.name === 'Apple');
+    const berries = gameState.inventory.find(i => i.name === 'Berries');
+    
+    if (!rawMeat && !apple && !berries) return;
+    
+    const target = rawMeat ? 'Raw Meat' : (apple ? 'Apple' : 'Berries');
+    setCookingItem(target);
+    
     playSFX(SFX_URLS.campfire_cook, 0.4);
     cookingTimeoutRef.current = window.setTimeout(() => {
       setGameState(prev => {
-        const apple = prev.inventory.find(i => i.name === 'Apple');
-        const berries = prev.inventory.find(i => i.name === 'Berries');
-        const rawMeat = prev.inventory.find(i => i.name === 'Raw Meat');
-        if (!apple && !berries && !rawMeat) return prev;
-        
         let newInventory = [...prev.inventory];
-        if (rawMeat) {
+        if (target === 'Raw Meat') {
           newInventory = newInventory.map(i => i.name === 'Raw Meat' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
-          const existingCooked = newInventory.find(i => i.name === 'Cooked Meat');
-          if (existingCooked) existingCooked.count++;
+          const existing = newInventory.find(i => i.name === 'Cooked Meat');
+          if (existing) existing.count++;
           else newInventory.push({ id: Math.random().toString(), name: 'Cooked Meat', type: 'food', count: 1 });
-        } else if (apple) {
+        } else if (target === 'Apple') {
           newInventory = newInventory.map(i => i.name === 'Apple' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
-          const existingRoasted = newInventory.find(i => i.name === 'Roasted Apple');
-          if (existingRoasted) existingRoasted.count++;
+          const existing = newInventory.find(i => i.name === 'Roasted Apple');
+          if (existing) existing.count++;
           else newInventory.push({ id: Math.random().toString(), name: 'Roasted Apple', type: 'food', count: 1 });
-        } else if (berries) {
+        } else if (target === 'Berries') {
           newInventory = newInventory.map(i => i.name === 'Berries' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
-          const existingCooked = newInventory.find(i => i.name === 'Cooked Berries');
-          if (existingCooked) existingCooked.count++;
+          const existing = newInventory.find(i => i.name === 'Cooked Berries');
+          if (existing) existing.count++;
           else newInventory.push({ id: Math.random().toString(), name: 'Cooked Berries', type: 'food', count: 1 });
         }
-        return { ...prev, inventory: newInventory };
+        return { ...prev, inventory: sortInventory(newInventory) };
       });
+      setCookingItem(null);
       cookingTimeoutRef.current = null;
     }, 1500);
-  }, [playSFX]);
+  }, [gameState.inventory, playSFX]);
 
   const handleShoot = useCallback(() => {
     setGameState(prev => {
       const newInventory = prev.inventory.map(i => i.name === 'Arrow' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
-      return { ...prev, inventory: newInventory };
+      return { ...prev, inventory: sortInventory(newInventory) };
     });
   }, []);
 
@@ -323,13 +352,13 @@ const App: React.FC = () => {
         newStats.hunger = Math.max(0, newStats.hunger - SURVIVAL_DECAY_RATES.hunger);
         newStats.thirst = Math.max(0, newStats.thirst - SURVIVAL_DECAY_RATES.thirst);
         
+        let currentEnergyDelta = -SURVIVAL_DECAY_RATES.energy_base;
         if (movementStatus.moving) {
           const loss = movementStatus.sprinting ? SURVIVAL_DECAY_RATES.energy_sprint : SURVIVAL_DECAY_RATES.energy_walk;
-          newStats.energy = Math.max(0, newStats.energy - loss);
+          currentEnergyDelta -= loss;
         } else {
-          newStats.energy = Math.min(100, newStats.energy + SURVIVAL_DECAY_RATES.energy_recovery);
+          currentEnergyDelta += SURVIVAL_DECAY_RATES.energy_recovery;
         }
-        newStats.energy = Math.max(0, newStats.energy - SURVIVAL_DECAY_RATES.energy_base);
 
         const campfireDistances = prev.campfires.map(cf => {
           const dx = cf.x - playerInfoRef.current.x;
@@ -347,10 +376,13 @@ const App: React.FC = () => {
           const warmthFactor = 1.0 - (minDistanceToFire / maxWarmthRange);
           const fireGain = warmthFactor * SURVIVAL_DECAY_RATES.temp_fire_gain * 2.5; 
           newStats.temperature = Math.min(38.5, newStats.temperature - environmentalDrop + fireGain);
+          currentEnergyDelta += (warmthFactor * SURVIVAL_DECAY_RATES.energy_fire_gain * 2.0);
         } else {
           setIsWarmingUp(false);
           newStats.temperature = Math.max(10, newStats.temperature - environmentalDrop);
         }
+
+        newStats.energy = Math.max(0, Math.min(100, newStats.energy + currentEnergyDelta));
 
         if (newStats.hunger <= 0 || newStats.thirst <= 0 || newStats.energy <= 0 || newStats.temperature < 15) {
           newStats.health = Math.max(0, newStats.health - 1.2);
@@ -379,7 +411,6 @@ const App: React.FC = () => {
 
         if (newStats.health <= 0) setIsGameOver(true);
         
-        // Even faster time progression: increased from 8.0 to 12.0
         let newTime = prev.time + 12.0; 
         let newDay = prev.day;
         if (newTime >= 2400) { newTime = 0; newDay++; }
@@ -396,14 +427,14 @@ const App: React.FC = () => {
   const restartGame = () => {
     const newState: GameState = {
       stats: { ...INITIAL_STATS },
-      inventory: [
+      inventory: sortInventory([
         { id: '1', name: 'Flint Stone', type: 'resource', count: 3 },
         { id: '2', name: 'Wood', type: 'resource', count: 12 },
         { id: '3', name: 'Stone', type: 'resource', count: 8 },
         { id: '4', name: 'Apple', type: 'food', count: 5 },
         { id: '5', name: 'Raw Meat', type: 'food', count: 2 },
         { id: '6', name: 'Arrow', type: 'resource', count: 10 }
-      ],
+      ]),
       day: 1,
       time: 1000,
       settings: gameState.settings,
@@ -420,12 +451,16 @@ const App: React.FC = () => {
     lastCriticalSoundRef.current = { hunger: 0, thirst: 0 };
     setView('game');
     setShowTodoList(true);
+    playSFX(SFX_URLS.ui_click);
   };
 
   return (
     <div 
       className="relative w-screen h-screen overflow-hidden bg-slate-950 text-white font-sans select-none" 
-      onClick={() => { if (view === 'game') sceneRef.current?.requestLock(); startMusic(); }}
+      onClick={() => { 
+        if (view === 'game') sceneRef.current?.requestLock(); 
+        startMusic(); 
+      }}
     >
       {view === 'game' && (
         <>
@@ -460,6 +495,8 @@ const App: React.FC = () => {
             onUseItem={handleUseItem}
             isVisible={isLocked || isMobile}
             onCraft={handleCraft}
+            onCook={handleCook}
+            cookingItem={cookingItem}
             isHungerCritical={isHungerCritical}
             isThirstCritical={isThirstCritical}
             isWarmingUp={isWarmingUp}
@@ -481,12 +518,15 @@ const App: React.FC = () => {
             </h1>
             <p className="text-indigo-500 font-mono tracking-[1.5em] mb-8 sm:mb-16 opacity-80 uppercase text-[10px] sm:text-sm">{t.tagline}</p>
             <div className="flex flex-col gap-4 sm:gap-5 max-w-xs sm:max-w-md mx-auto">
-              <button onClick={() => setView('game')} className="group relative py-4 sm:py-6 bg-white text-slate-950 font-black rounded-2xl sm:rounded-[2rem] hover:bg-indigo-50 transition-all shadow-[0_10px_40px_rgba(255,255,255,0.1)] text-lg sm:text-xl uppercase tracking-widest overflow-hidden">
+              <button 
+                onClick={() => { setView('game'); playSFX(SFX_URLS.ui_click); }} 
+                className="group relative py-4 sm:py-6 bg-white text-slate-950 font-black rounded-2xl sm:rounded-[2rem] hover:bg-indigo-50 transition-all shadow-[0_10px_40px_rgba(255,255,255,0.1)] text-lg sm:text-xl uppercase tracking-widest overflow-hidden"
+              >
                 <span className="relative z-10">{t.continue}</span>
                 <div className="absolute inset-0 bg-indigo-100 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
               </button>
               <button onClick={restartGame} className="py-3 sm:py-5 bg-slate-900/50 hover:bg-slate-800 font-bold rounded-2xl sm:rounded-[2rem] border border-white/10 transition-all uppercase tracking-widest text-white/70 hover:text-white text-sm sm:text-base">{t.newGame}</button>
-              <button onClick={() => setView('settings')} className="py-3 sm:py-5 bg-slate-900/50 hover:bg-slate-800 font-bold rounded-2xl sm:rounded-[2rem] border border-white/10 transition-all uppercase tracking-widest text-white/70 hover:text-white text-sm sm:text-base">{t.settings}</button>
+              <button onClick={() => { setView('settings'); playSFX(SFX_URLS.ui_click); }} className="py-3 sm:py-5 bg-slate-900/50 hover:bg-slate-800 font-bold rounded-2xl sm:rounded-[2rem] border border-white/10 transition-all uppercase tracking-widest text-white/70 hover:text-white text-sm sm:text-base">{t.settings}</button>
             </div>
           </div>
         </div>
@@ -497,16 +537,20 @@ const App: React.FC = () => {
           <div className="w-full max-w-md p-8 sm:p-12 bg-slate-900/80 border border-white/5 rounded-[2rem] sm:rounded-[3rem] shadow-2xl">
             <h2 className="text-3xl sm:text-4xl font-black mb-8 sm:mb-12 tracking-tight text-center uppercase text-white/90">{t.settings}</h2>
             <div className="flex flex-col gap-4 sm:gap-6">
-              <button onClick={() => setGameState(p => ({...p, settings: {...p.settings, language: p.settings.language === 'en' ? 'tr' : 'en'}}))} className="flex justify-between items-center p-6 sm:p-8 bg-white/5 rounded-2xl sm:rounded-3xl border border-white/5 hover:bg-white/10 transition-all">
+              <button onClick={() => { setGameState(p => ({...p, settings: {...p.settings, language: p.settings.language === 'en' ? 'tr' : 'en'}})); playSFX(SFX_URLS.ui_click); }} className="flex justify-between items-center p-6 sm:p-8 bg-white/5 rounded-2xl sm:rounded-3xl border border-white/5 hover:bg-white/10 transition-all">
                 <span className="text-slate-500 font-black uppercase text-[10px] sm:text-xs tracking-widest">{t.language}</span>
                 <span className="font-black uppercase text-indigo-400 text-base sm:text-lg">{gameState.settings.language}</span>
               </button>
-              <button onClick={() => setGameState(p => ({...p, settings: {...p.settings, musicEnabled: !p.settings.musicEnabled}}))} className="flex justify-between items-center p-6 sm:p-8 bg-white/5 rounded-2xl sm:rounded-3xl border border-white/5 hover:bg-white/10 transition-all">
+              <button onClick={() => { setGameState(p => ({...p, settings: {...p.settings, musicEnabled: !p.settings.musicEnabled}})); playSFX(SFX_URLS.ui_click); }} className="flex justify-between items-center p-6 sm:p-8 bg-white/5 rounded-2xl sm:rounded-3xl border border-white/5 hover:bg-white/10 transition-all">
                 <span className="text-slate-500 font-black uppercase text-[10px] sm:text-xs tracking-widest">{t.music}</span>
                 <span className={`font-black text-base sm:text-lg ${gameState.settings.musicEnabled ? 'text-green-400' : 'text-slate-600'}`}>{gameState.settings.musicEnabled ? t.on : t.off}</span>
               </button>
+              <button onClick={() => { setGameState(p => ({...p, settings: {...p.settings, sfxEnabled: !p.settings.sfxEnabled}})); playSFX(SFX_URLS.ui_click); }} className="flex justify-between items-center p-6 sm:p-8 bg-white/5 rounded-2xl sm:rounded-3xl border border-white/5 hover:bg-white/10 transition-all">
+                <span className="text-slate-500 font-black uppercase text-[10px] sm:text-xs tracking-widest">{t.sfx}</span>
+                <span className={`font-black text-base sm:text-lg ${gameState.settings.sfxEnabled ? 'text-green-400' : 'text-slate-600'}`}>{gameState.settings.sfxEnabled ? t.on : t.off}</span>
+              </button>
             </div>
-            <button onClick={() => setView('menu')} className="w-full mt-10 sm:mt-14 py-4 sm:py-6 bg-indigo-600 text-white font-black rounded-2xl sm:rounded-3xl hover:bg-indigo-500 transition-all shadow-xl uppercase tracking-[0.2em]">{t.close}</button>
+            <button onClick={() => { setView('menu'); playSFX(SFX_URLS.ui_click); }} className="w-full mt-10 sm:mt-14 py-4 sm:py-6 bg-indigo-600 text-white font-black rounded-2xl sm:rounded-3xl hover:bg-indigo-500 transition-all shadow-xl uppercase tracking-[0.2em]">{t.close}</button>
           </div>
         </div>
       )}

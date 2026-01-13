@@ -14,6 +14,7 @@ export const SURVIVAL_DECAY_RATES = {
   energy_walk: 0.15,     // Drain while walking
   energy_sprint: 0.45,   // Drain while sprinting
   energy_recovery: 0.4,  // Recovery when standing still
+  energy_fire_gain: 0.6, // Extra recovery when near fire
   temp_night_drop: 0.25, // Temperature drop per sec at night
   temp_day_drop: 0.08,   // Temperature drop per sec at day
   temp_fire_gain: 0.8,   // Temperature gain near fire
@@ -191,4 +192,6 @@ export const SFX_URLS = {
   arrow_impact: 'https://assets.mixkit.co/sfx/preview/mixkit-arrow-impact-on-wood-2169.mp3',
   torch_light: 'https://assets.mixkit.co/sfx/preview/mixkit-fire-flare-1334.mp3',
   rain_ambient: 'https://assets.mixkit.co/sfx/preview/mixkit-light-rain-loop-2393.mp3',
+  ui_click: 'https://assets.mixkit.co/sfx/preview/mixkit-modern-click-box-check-1120.mp3',
+  ui_hover: 'https://assets.mixkit.co/sfx/preview/mixkit-simple-click-interface-sound-2564.mp3'
 };
