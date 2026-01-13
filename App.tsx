@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import GameScene, { GameSceneHandle } from './components/GameScene';
 import UIOverlay from './components/UIOverlay';
-import AIAdvisor from './components/AIAdvisor';
 import { GameState, InteractionTarget, MobileInput } from './types';
 import { INITIAL_STATS, SURVIVAL_DECAY_RATES, TRANSLATIONS, SFX_URLS } from './constants';
 
@@ -316,7 +315,6 @@ const App: React.FC = () => {
         const now = Date.now();
         const newStats = { ...prev.stats };
         
-        // Decay logic
         newStats.hunger = Math.max(0, newStats.hunger - SURVIVAL_DECAY_RATES.hunger);
         newStats.thirst = Math.max(0, newStats.thirst - SURVIVAL_DECAY_RATES.thirst);
         
@@ -328,7 +326,6 @@ const App: React.FC = () => {
         }
         newStats.energy = Math.max(0, newStats.energy - SURVIVAL_DECAY_RATES.energy_base);
 
-        // Proximity-based warmth mechanic
         const campfireDistances = prev.campfires.map(cf => {
           const dx = cf.x - playerInfoRef.current.x;
           const dz = cf.z - playerInfoRef.current.z;
@@ -342,7 +339,6 @@ const App: React.FC = () => {
 
         if (minDistanceToFire < maxWarmthRange) {
           setIsWarmingUp(true);
-          // Scale gain inversely with distance: max gain at 0, zero gain at max range
           const warmthFactor = 1.0 - (minDistanceToFire / maxWarmthRange);
           const fireGain = warmthFactor * SURVIVAL_DECAY_RATES.temp_fire_gain * 2.5; 
           newStats.temperature = Math.min(38.5, newStats.temperature - environmentalDrop + fireGain);
@@ -351,14 +347,12 @@ const App: React.FC = () => {
           newStats.temperature = Math.max(10, newStats.temperature - environmentalDrop);
         }
 
-        // Health impact
         if (newStats.hunger <= 0 || newStats.thirst <= 0 || newStats.energy <= 0 || newStats.temperature < 15) {
           newStats.health = Math.max(0, newStats.health - 1.2);
         } else if (newStats.hunger > 60 && newStats.thirst > 60 && newStats.energy > 40 && newStats.temperature > 15) {
           newStats.health = Math.min(100, newStats.health + 0.15);
         }
         
-        // Critical Logic
         const hungerCrit = newStats.hunger <= 15;
         const thirstCrit = newStats.thirst <= 15;
         
@@ -380,7 +374,6 @@ const App: React.FC = () => {
 
         if (newStats.health <= 0) setIsGameOver(true);
         
-        // Time cycle
         let newTime = prev.time + 2.67;
         let newDay = prev.day;
         if (newTime >= 2400) { newTime = 0; newDay++; }
@@ -470,7 +463,6 @@ const App: React.FC = () => {
             playerRotation={playerRotation}
             activeToolId={activeToolId}
           />
-          <AIAdvisor gameState={gameState} />
         </>
       )}
 
