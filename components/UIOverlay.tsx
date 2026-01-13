@@ -60,11 +60,26 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
     </div>
   );
 
+  const getInteractionIcon = (type: string) => {
+    switch (type) {
+      case 'tree': return '🪓';
+      case 'rock': return '⛏️';
+      case 'bush':
+      case 'appleTree': return '✋';
+      case 'water': return '💧';
+      case 'campfire': return '🍳';
+      case 'critter': return '🏹';
+      case 'arrow': return '⬇️';
+      default: return null;
+    }
+  };
+
   const overlayClasses = [];
   if (isHungerCritical) overlayClasses.push('bg-red-900/10 backdrop-blur-sm');
   if (isThirstCritical) overlayClasses.push('bg-blue-900/10 backdrop-blur-sm');
   const overlayCombinedClass = overlayClasses.length > 0 ? overlayClasses.join(' ') : '';
 
+  const interactionIcon = getInteractionIcon(interaction.type);
 
   return (
     <div className={`absolute inset-0 pointer-events-none flex flex-col justify-between p-4 md:p-6 select-none transition-opacity duration-500 z-20 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
@@ -74,10 +89,22 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         <div className={`absolute inset-0 z-50 transition-all duration-500 ${overlayCombinedClass}`}></div>
       )}
 
-      {/* Reticle */}
+      {/* Dynamic Reticle with Interaction Icon */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center z-10">
-          <div className={`w-1 h-1 rounded-full transition-all duration-200 ${interaction.type !== 'none' ? 'scale-[4] bg-green-400' : 'bg-white/70'}`} />
-          <div className={`absolute w-4 h-4 border-2 rounded-full transition-all duration-200 ${interaction.type !== 'none' ? 'scale-150 border-green-400 opacity-100' : 'border-white/20 opacity-0'}`} />
+          <div className={`w-1 h-1 rounded-full transition-all duration-200 ${interaction.type !== 'none' ? 'scale-0 bg-green-400' : 'bg-white/70'}`} />
+          
+          {/* Interaction Circle and Icon */}
+          <div className={`absolute transition-all duration-300 flex flex-col items-center gap-1 ${interaction.type !== 'none' ? 'scale-100 opacity-100' : 'scale-50 opacity-0'}`}>
+             <div className="text-xl md:text-2xl drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] animate-bounce-slow">
+                {interactionIcon}
+             </div>
+             <div className="w-6 h-6 border-2 border-white/50 rounded-full flex items-center justify-center bg-black/20 backdrop-blur-sm">
+                <div className="w-1 h-1 bg-white rounded-full" />
+             </div>
+             <div className="text-[7px] font-black text-white uppercase tracking-widest bg-black/40 px-1.5 py-0.5 rounded shadow-lg border border-white/10 whitespace-nowrap">
+                {t[interaction.type as keyof typeof t] || interaction.type}
+             </div>
+          </div>
       </div>
 
       {/* Top Left Stats & To-Do List */}
@@ -183,6 +210,17 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
           </div>
         </div>
       </div>
+      
+      {/* Reticle styles */}
+      <style>{`
+        @keyframes bounce-slow {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
+        }
+        .animate-bounce-slow {
+          animation: bounce-slow 2s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 };

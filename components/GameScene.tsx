@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import { Water } from 'three/examples/jsm/objects/Water';
@@ -63,15 +63,26 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
   const torchLightRef = useRef<THREE.PointLight | null>(null);
   const worldObjectsRef = useRef<THREE.Object3D[]>([]);
   const groundedArrowsRef = useRef<THREE.Object3D[]>([]);
+  const rainSystemRef = useRef<THREE.Points | null>(null);
+  const rainAudioRef = useRef<HTMLAudioElement | null>(null);
   
-  const propsRef = useRef({ onInteract, onCollect, onDrink, onCook, onShoot, onMovementChange, onPositionUpdate, onLockChange, hasBow, arrowCount, hasTorch, time, sfxEnabled });
+  const propsRef = useRef({ onInteract, onCollect, onDrink, onCook, onShoot, onMovementChange, onPositionUpdate, onLockChange, hasBow, arrowCount, hasTorch, time, weather, sfxEnabled });
 
   useEffect(() => {
-    propsRef.current = { onInteract, onCollect, onDrink, onCook, onShoot, onMovementChange, onPositionUpdate, onLockChange, hasBow, arrowCount, hasTorch, time, sfxEnabled };
+    propsRef.current = { onInteract, onCollect, onDrink, onCook, onShoot, onMovementChange, onPositionUpdate, onLockChange, hasBow, arrowCount, hasTorch, time, weather, sfxEnabled };
     if (bowModelRef.current) bowModelRef.current.visible = hasBow;
     if (arrowModelRef.current) arrowModelRef.current.visible = hasBow && arrowCount > 0;
     if (torchModelRef.current) torchModelRef.current.visible = hasTorch;
-  }, [onInteract, onCollect, onDrink, onCook, onShoot, onMovementChange, onPositionUpdate, onLockChange, hasBow, arrowCount, hasTorch, time, sfxEnabled]);
+    
+    // Manage Rain Audio based on weather and sfx setting
+    if (rainAudioRef.current) {
+        if (weather === 'rainy' && isLocked && sfxEnabled) {
+            if (rainAudioRef.current.paused) rainAudioRef.current.play().catch(() => {});
+        } else {
+            rainAudioRef.current.pause();
+        }
+    }
+  }, [onInteract, onCollect, onDrink, onCook, onShoot, onMovementChange, onPositionUpdate, onLockChange, hasBow, arrowCount, hasTorch, time, weather, isLocked, sfxEnabled]);
 
   useEffect(() => {
     if (!sceneRef.current) return;
@@ -270,6 +281,44 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     torchModelRef.current = torchGroup;
     torchGroup.visible = propsRef.current.hasTorch;
 
+    // Rain Particle System
+    const createRainSystem = () => {
+        const rainCount = 15000;
+        const rainGeo = new THREE.BufferGeometry();
+        const rainPositions = new Float32Array(rainCount * 3);
+        const rainVelocities = new Float32Array(rainCount);
+
+        for (let i = 0; i < rainCount; i++) {
+            rainPositions[i * 3] = (Math.random() - 0.5) * 600;
+            rainPositions[i * 3 + 1] = Math.random() * 200;
+            rainPositions[i * 3 + 2] = (Math.random() - 0.5) * 600;
+            rainVelocities[i] = 1.5 + Math.random() * 2;
+        }
+
+        rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
+        const rainMat = new THREE.PointsMaterial({
+            color: 0xaaaaaa,
+            size: 0.25,
+            transparent: true,
+            opacity: 0.6
+        });
+
+        const points = new THREE.Points(rainGeo, rainMat);
+        points.userData = { velocities: rainVelocities };
+        points.visible = false;
+        return points;
+    };
+
+    const rainSystem = createRainSystem();
+    scene.add(rainSystem);
+    rainSystemRef.current = rainSystem;
+
+    // Ambient Rain Audio
+    const rainAudio = new Audio(SFX_URLS.rain_ambient);
+    rainAudio.loop = true;
+    rainAudio.volume = 0.25;
+    rainAudioRef.current = rainAudio;
+
     // Enhanced Lush Green Ground Texture
     const createGrassTexture = () => {
         const size = 1024;
@@ -279,18 +328,15 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
         const ctx = canvas.getContext('2d');
         if (!ctx) return null;
 
-        // Base color
         ctx.fillStyle = '#1e3a1a';
         ctx.fillRect(0, 0, size, size);
 
-        // Add some noise for variation
         for (let i = 0; i < 50000; i++) {
             const x = Math.random() * size;
             const y = Math.random() * size;
             const w = Math.random() * 2 + 1;
             const h = Math.random() * 4 + 2;
             const opacity = Math.random() * 0.4;
-            // Mix of lush greens
             const greenType = Math.random();
             if (greenType > 0.6) ctx.fillStyle = `rgba(45, 90, 39, ${opacity})`;
             else if (greenType > 0.3) ctx.fillStyle = `rgba(58, 125, 50, ${opacity})`;
@@ -299,7 +345,6 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
             ctx.fillRect(x, y, w, h);
         }
 
-        // Add some clumping details
         for (let i = 0; i < 100; i++) {
             const x = Math.random() * size;
             const y = Math.random() * size;
@@ -324,7 +369,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     const grassTexture = createGrassTexture();
     const groundGeo = new THREE.PlaneGeometry(3000, 3000);
     const groundMat = new THREE.MeshStandardMaterial({ 
-        color: 0xffffff, // White because we apply the map
+        color: 0xffffff,
         map: grassTexture,
         roughness: 0.9,
         metalness: 0.05
@@ -427,7 +472,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     const animate = () => {
         requestAnimationFrame(animate);
         const now = Date.now(); const delta = 0.016;
-        const { time } = propsRef.current;
+        const { time, weather } = propsRef.current;
         
         const sunAngle = (time / 2400) * Math.PI * 2;
         const sunAltitude = Math.sin(sunAngle);
@@ -457,18 +502,55 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
           skyCol.copy(dayColor);
         }
 
+        // Adjust sky for rain
+        if (weather === 'rainy') {
+            const rainDarken = new THREE.Color(0x333333);
+            skyCol.lerp(rainDarken, 0.4);
+        }
+
         scene.background = skyCol;
-        if(scene.fog) scene.fog.color.copy(skyCol);
+        // Fix for THREE.Fog type issue: check if it's an instance of THREE.Fog before accessing near/far
+        if (scene.fog) {
+            scene.fog.color.copy(skyCol);
+            if (scene.fog instanceof THREE.Fog) {
+                scene.fog.near = weather === 'rainy' ? 5 : 20;
+                scene.fog.far = weather === 'rainy' ? 400 : 800;
+            }
+        }
         
         const lFactor = Math.max(0, Math.min(1, sunAltitude + 0.2));
-        hemiLight.intensity = 0.1 + lFactor * 0.5;
+        hemiLight.intensity = (0.1 + lFactor * 0.5) * (weather === 'rainy' ? 0.7 : 1);
         if (sunLightRef.current) {
-          sunLightRef.current.intensity = lFactor * 1.5;
+          sunLightRef.current.intensity = lFactor * 1.5 * (weather === 'rainy' ? 0.4 : 1);
           if (sunAltitude < 0.4 && sunAltitude > -0.1) sunLightRef.current.color.set(sunX > 0 ? 0xffe4b5 : 0xffa07a);
           else sunLightRef.current.color.set(0xfffaf0);
         }
         
-        if(starFieldRef.current) (starFieldRef.current.material as THREE.PointsMaterial).opacity = Math.max(0, 1 - lFactor * 1.2);
+        if(starFieldRef.current) (starFieldRef.current.material as THREE.PointsMaterial).opacity = Math.max(0, 1 - lFactor * 1.2) * (weather === 'rainy' ? 0.2 : 1);
+
+        // Update Rain Particles
+        if (rainSystemRef.current) {
+            if (weather === 'rainy') {
+                rainSystemRef.current.visible = true;
+                rainSystemRef.current.position.copy(camera.position);
+                rainSystemRef.current.position.y = 0; // Relative positions handle height
+                
+                const positions = rainSystemRef.current.geometry.attributes.position.array as Float32Array;
+                const velocities = rainSystemRef.current.userData.velocities;
+                
+                for (let i = 0; i < velocities.length; i++) {
+                    positions[i * 3 + 1] -= velocities[i] * 2; // Fall down
+                    
+                    // Reset particles to top when they fall too low
+                    if (positions[i * 3 + 1] < -20) {
+                        positions[i * 3 + 1] = 150 + Math.random() * 50;
+                    }
+                }
+                rainSystemRef.current.geometry.attributes.position.needsUpdate = true;
+            } else {
+                rainSystemRef.current.visible = false;
+            }
+        }
 
         if (waterRef.current) {
             waterRef.current.material.uniforms[ 'time' ].value += delta;
@@ -585,7 +667,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     window.addEventListener('resize', res);
     return () => {
         window.removeEventListener('keydown', onKD); window.removeEventListener('keyup', onKU); window.removeEventListener('resize', res);
-        birdAudio.pause(); controls.dispose(); renderer.dispose(); mountRef.current?.removeChild(renderer.domElement);
+        birdAudio.pause(); rainAudio.pause(); controls.dispose(); renderer.dispose(); mountRef.current?.removeChild(renderer.domElement);
     };
   }, []);
 

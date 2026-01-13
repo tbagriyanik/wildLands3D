@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import GameScene, { GameSceneHandle } from './components/GameScene';
 import UIOverlay from './components/UIOverlay';
-import AIAdvisor from './components/AIAdvisor';
 import { GameState, InteractionTarget, InventoryItem } from './types';
 import { INITIAL_STATS, SURVIVAL_DECAY_RATES, TRANSLATIONS, SFX_URLS } from './constants';
 
@@ -308,10 +307,18 @@ const App: React.FC = () => {
         if (newStats.thirst <= 15 && !isThirstCritical) { setIsThirstCritical(true); playSFX(SFX_URLS.thirst_critical, 0.7); }
         else if (newStats.thirst > 15 && isThirstCritical) setIsThirstCritical(false);
         if (newStats.health <= 0) setIsGameOver(true);
+        
         let newTime = prev.time + 3.0;
         let newDay = prev.day;
         if (newTime >= 2400) { newTime = 0; newDay++; }
-        return { ...prev, stats: newStats, time: newTime, day: newDay };
+        
+        // Random weather changes (every hour on average)
+        let newWeather = prev.weather;
+        if (Math.random() < 0.005) {
+          newWeather = Math.random() < 0.3 ? 'rainy' : 'sunny';
+        }
+
+        return { ...prev, stats: newStats, time: newTime, day: newDay, weather: newWeather };
       });
     }, 1000);
     return () => clearInterval(interval);
@@ -375,10 +382,6 @@ const App: React.FC = () => {
             isHungerCritical={isHungerCritical}
             isThirstCritical={isThirstCritical}
             showTodoList={showTodoList}
-          />
-          <AIAdvisor 
-            gameState={gameState} 
-            isVisible={isLocked && !isGameOver}
           />
         </>
       )}

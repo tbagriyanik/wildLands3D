@@ -165,4 +165,5 @@ export const SFX_URLS = {
   arrow_shoot: 'https://assets.mixkit.co/sfx/preview/mixkit-fast-bow-shoot-2633.mp3',
   arrow_impact: 'https://assets.mixkit.co/sfx/preview/mixkit-arrow-impact-on-wood-2169.mp3',
   torch_light: 'https://assets.mixkit.co/sfx/preview/mixkit-fire-flare-1334.mp3',
+  rain_ambient: 'https://assets.mixkit.co/sfx/preview/mixkit-light-rain-loop-2393.mp3',
 };
