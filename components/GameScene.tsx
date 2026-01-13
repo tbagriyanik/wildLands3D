@@ -46,7 +46,9 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const campfireGroupRef = useRef<THREE.Group>(new THREE.Group());
   const sunLightRef = useRef<THREE.DirectionalLight | null>(null);
+  const ambientLightRef = useRef<THREE.AmbientLight | null>(null);
   const skyRef = useRef<Sky | null>(null);
+  const starsRef = useRef<THREE.Points | null>(null);
   const bowModelRef = useRef<THREE.Group | null>(null);
   const arrowModelRef = useRef<THREE.Group | null>(null);
   const torchModelRef = useRef<THREE.Group | null>(null);
@@ -171,6 +173,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
   useEffect(() => {
     if (!mountRef.current) return;
     const scene = new THREE.Scene(); sceneRef.current = scene;
+    scene.fog = new THREE.FogExp2(0x1a1a1a, 0.002);
     const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1500);
     camera.position.set(120, 1.8, 120); cameraRef.current = camera;
 
@@ -180,8 +183,28 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     mountRef.current.appendChild(renderer.domElement);
 
     const sky = new Sky(); sky.scale.setScalar(450000); scene.add(sky); skyRef.current = sky;
+    
+    // Create Stars
+    const starGeometry = new THREE.BufferGeometry();
+    const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.7, transparent: true, opacity: 0 });
+    const starVertices = [];
+    for (let i = 0; i < 5000; i++) {
+      const x = THREE.MathUtils.randFloatSpread(2000);
+      const y = THREE.MathUtils.randFloat(100, 1000);
+      const z = THREE.MathUtils.randFloatSpread(2000);
+      starVertices.push(x, y, z);
+    }
+    starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+    const stars = new THREE.Points(starGeometry, starMaterial);
+    scene.add(stars);
+    starsRef.current = stars;
+
     const sunLight = new THREE.DirectionalLight(0xfffaf0, 1.2); sunLight.castShadow = true;
     sunLight.shadow.mapSize.set(512, 512); scene.add(sunLight); sunLightRef.current = sunLight;
+
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+    scene.add(ambientLight);
+    ambientLightRef.current = ambientLight;
 
     const bowGroup = new THREE.Group();
     const bowCurve = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.012, 4, 8, Math.PI), new THREE.MeshStandardMaterial({ color: 0x3d2b1f }));
@@ -212,7 +235,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     const water = new Water(new THREE.CircleGeometry(50, 8), {
         textureWidth: 128, textureHeight: 128,
         waterNormals: new THREE.TextureLoader().load('https://threejs.org/examples/textures/waternormals.jpg', (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; }),
-        waterColor: 0x002e40, distortionScale: 1.0, fog: false
+        waterColor: 0x002e40, distortionScale: 1.0, fog: true
     });
     water.rotation.x = -Math.PI/2; water.position.set(0, 0.21, 0); water.userData = { type: 'water' };
     scene.add(water); waterRef.current = water;
@@ -283,26 +306,71 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
         
         const phi = (time / 2400) * Math.PI * 2 - Math.PI / 2;
         tempVec.setFromSphericalCoords(1, Math.PI / 2 - phi, 0);
-        if (skyRef.current) skyRef.current.material.uniforms['sunPosition'].value.copy(tempVec);
+        
         const sunAltitude = Math.sin(phi);
-        const lFactor = Math.max(0, Math.min(1, sunAltitude + 0.2));
+        const isDay = sunAltitude > 0;
+        const lFactor = Math.max(0, Math.min(1, sunAltitude + 0.3));
+        const eveningFactor = Math.max(0, Math.min(1, 1.0 - Math.abs(sunAltitude)));
+
+        if (skyRef.current) {
+            const uniforms = skyRef.current.material.uniforms;
+            uniforms['sunPosition'].value.copy(tempVec);
+            uniforms['turbidity'].value = 10 * (1 - lFactor) + 2;
+            uniforms['rayleigh'].value = 3 * lFactor + 0.5;
+            uniforms['mieCoefficient'].value = 0.005;
+            uniforms['mieDirectionalG'].value = 0.8;
+        }
+
+        if (starsRef.current) {
+          (starsRef.current.material as THREE.PointsMaterial).opacity = Math.max(0, -sunAltitude * 1.5);
+          starsRef.current.position.set(camera.position.x, 0, camera.position.z);
+        }
         
         if (sunLightRef.current) {
             sunLightRef.current.position.copy(tempVec).multiplyScalar(100);
-            sunLightRef.current.intensity = lFactor * 1.5;
+            sunLightRef.current.intensity = Math.max(0, sunAltitude) * 1.5;
+            
+            // Dawn/Dusk coloring
+            if (sunAltitude < 0.2 && sunAltitude > -0.2) {
+              sunLightRef.current.color.setHSL(0.05, 0.8, 0.6);
+            } else {
+              sunLightRef.current.color.setHSL(0.1, 0.2, 1.0);
+            }
+
             sunLightRef.current.shadow.camera.position.set(camera.position.x, 50, camera.position.z);
             sunLightRef.current.target.position.set(camera.position.x, 0, camera.position.z);
             sunLightRef.current.target.updateMatrixWorld();
         }
 
+        if (ambientLightRef.current) {
+          const intensity = Math.max(0.05, lFactor * 0.6);
+          ambientLightRef.current.intensity = intensity;
+          
+          if (!isDay) {
+            ambientLightRef.current.color.setHex(0x202040); // Deep Night Blue
+          } else if (sunAltitude < 0.2) {
+            ambientLightRef.current.color.setHex(0xffaa88); // Dawn/Dusk Orange
+          } else {
+            ambientLightRef.current.color.setHex(0xffffff);
+          }
+        }
+
+        if (sceneRef.current && sceneRef.current.fog) {
+          const fog = sceneRef.current.fog as THREE.FogExp2;
+          if (isDay) {
+            fog.color.setHSL(0.6, 0.2, Math.max(0.1, sunAltitude * 0.5));
+          } else {
+            fog.color.setHex(0x050510);
+          }
+        }
+
         // Ambient wildlife sounds logic
         if (now > nextAmbientTimeRef.current) {
-            const isDay = time > 500 && time < 1900;
-            if (isDay && propsRef.current.sfxEnabled) {
+            const isDayLight = time > 500 && time < 1900;
+            if (isDayLight && propsRef.current.sfxEnabled) {
                 const sfx = Math.random() > 0.5 ? SFX_URLS.bird_ambient : SFX_URLS.squirrel_ambient;
                 playSFX(sfx, 0.15, true);
             }
-            // Set next ambient sound time (between 10 to 30 seconds)
             nextAmbientTimeRef.current = now + 10000 + Math.random() * 20000;
         }
 
