@@ -98,7 +98,6 @@ const App: React.FC = () => {
   const isTorchActive = equippedItem?.name === 'Torch';
   const arrowCount = gameState.inventory.find(i => i.name === 'Arrow')?.count || 0;
 
-  // Auto-close crafting menu after 10 seconds
   useEffect(() => {
     if (isCraftingOpen) {
       if (craftingTimeoutRef.current) window.clearTimeout(craftingTimeoutRef.current);
@@ -339,7 +338,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handleKeys = (e: KeyboardEvent) => {
-      const k = e.key.toLowerCase();
       if (view === 'game') {
         if (e.key === 'Escape') { 
           if (isCraftingOpen) {
@@ -350,21 +348,23 @@ const App: React.FC = () => {
           }
           return; 
         }
-        if (k === 'c') { setIsCraftingOpen(prev => !prev); return; }
-        if (k === 'f') { handleCraft('campfire'); return; }
-        if (k === 'x') { handleCraft('arrows'); return; }
-        if (k === 'b') { 
+
+        const code = e.code;
+        if (code === 'KeyC') { setIsCraftingOpen(prev => !prev); return; }
+        if (code === 'KeyF') { handleCraft('campfire'); return; }
+        if (code === 'KeyX') { handleCraft('arrows'); return; }
+        if (code === 'KeyB') { 
           const bow = gameState.inventory.find(i => i.name === 'Bow');
           if (bow) handleUseItem(bow.id);
           return; 
         }
-        if (k === 't') { 
+        if (code === 'KeyT') { 
           const torch = gameState.inventory.find(i => i.name === 'Torch');
           if (torch) handleUseItem(torch.id);
           return; 
         }
-        if (k === 'e') { sceneRef.current?.triggerAction(); return; }
-        if (k === 'i') { setShowTodoList(prev => !prev); return; }
+        if (code === 'KeyE') { sceneRef.current?.triggerAction(); return; }
+        if (code === 'KeyI') { setShowTodoList(prev => !prev); return; }
 
         const keyNum = parseInt(e.key);
         if (!isNaN(keyNum) && keyNum >= 1 && keyNum <= 9) {
@@ -530,7 +530,7 @@ const App: React.FC = () => {
         gameState={gameState} 
         interaction={interaction}
         onUseItem={handleUseItem}
-        isVisible={view === 'game' && (isLocked || isMobile)}
+        isVisible={view === 'game' && (isLocked || isMobile || isCraftingOpen)}
         onCraft={handleCraft}
         onCook={handleCook}
         cookingItem={cookingItem}
