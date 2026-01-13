@@ -2,10 +2,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import GameScene, { GameSceneHandle } from './components/GameScene';
 import UIOverlay from './components/UIOverlay';
+import AIAdvisor from './components/AIAdvisor';
 import { GameState, InteractionTarget, MobileInput } from './types';
 import { INITIAL_STATS, SURVIVAL_DECAY_RATES, TRANSLATIONS, SFX_URLS } from './constants';
 
-const SAVE_KEY = 'wildlands_survival_v15';
+const SAVE_KEY = 'wildlands_survival_v18';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'menu' | 'game' | 'settings'>('menu');
@@ -19,20 +20,23 @@ const App: React.FC = () => {
         return { 
           ...parsed, 
           settings: parsed.settings || { language: 'en', musicEnabled: true, sfxEnabled: true },
-          campfires: parsed.campfires || []
+          campfires: parsed.campfires || [],
+          activeTool: null
         };
       } catch (e) { console.error("Save load failed:", e); }
     }
     return {
       stats: { ...INITIAL_STATS },
       inventory: [
-        { id: '1', name: 'Flint Stone', type: 'resource', count: 1 },
-        { id: '2', name: 'Wood', type: 'resource', count: 5 },
-        { id: '3', name: 'Stone', type: 'resource', count: 2 },
-        { id: '4', name: 'Apple', type: 'food', count: 3 }
+        { id: '1', name: 'Flint Stone', type: 'resource', count: 3 },
+        { id: '2', name: 'Wood', type: 'resource', count: 12 },
+        { id: '3', name: 'Stone', type: 'resource', count: 8 },
+        { id: '4', name: 'Apple', type: 'food', count: 5 },
+        { id: '5', name: 'Raw Meat', type: 'food', count: 2 },
+        { id: '6', name: 'Arrow', type: 'resource', count: 10 }
       ],
       day: 1,
-      time: 600,
+      time: 1000,
       settings: { language: 'en', musicEnabled: true, sfxEnabled: true },
       weather: 'sunny',
       campfires: []
@@ -43,21 +47,41 @@ const App: React.FC = () => {
   const [isGameOver, setIsGameOver] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [showTodoList, setShowTodoList] = useState(true);
+  const [playerRotation, setPlayerRotation] = useState(0);
+  const [activeToolId, setActiveToolId] = useState<string | null>(null);
+  const todoTimeoutRef = useRef<number | null>(null);
+  const cookingTimeoutRef = useRef<number | null>(null);
+  
   const [movementStatus, setMovementStatus] = useState({ moving: false, sprinting: false });
   const [mobileInput, setMobileInput] = useState<MobileInput>({ moveX: 0, moveY: 0, jump: false, sprint: false, interact: false, attack: false });
   
   const playerInfoRef = useRef({ x: 120, z: 120, dirX: 0, dirZ: -1 });
   const [isHungerCritical, setIsHungerCritical] = useState(false);
   const [isThirstCritical, setIsThirstCritical] = useState(false);
+  const [isWarmingUp, setIsWarmingUp] = useState(false);
+  const lastCriticalSoundRef = useRef({ hunger: 0, thirst: 0 });
   
   const menuAudioRef = useRef<HTMLAudioElement | null>(null);
   const gameAudioRef = useRef<HTMLAudioElement | null>(null);
   const sceneRef = useRef<GameSceneHandle>(null);
   const t = TRANSLATIONS[gameState.settings.language];
 
-  const hasBow = gameState.inventory.some(i => i.name === 'Bow');
+  const equippedItem = gameState.inventory.find(i => i.id === activeToolId);
+  const isBowActive = equippedItem?.name === 'Bow';
+  const isTorchActive = equippedItem?.name === 'Torch';
   const arrowCount = gameState.inventory.find(i => i.name === 'Arrow')?.count || 0;
-  const hasTorch = gameState.inventory.some(i => i.name === 'Torch');
+
+  useEffect(() => {
+    if (showTodoList) {
+      if (todoTimeoutRef.current) window.clearTimeout(todoTimeoutRef.current);
+      todoTimeoutRef.current = window.setTimeout(() => {
+        setShowTodoList(false);
+      }, 10000);
+    }
+    return () => {
+      if (todoTimeoutRef.current) window.clearTimeout(todoTimeoutRef.current);
+    };
+  }, [showTodoList]);
 
   useEffect(() => {
     localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
@@ -85,7 +109,7 @@ const App: React.FC = () => {
       const sfx = new Audio(url);
       sfx.volume = volume;
       if (randomizePitch) sfx.playbackRate = 0.9 + Math.random() * 0.2;
-      sfx.play().catch((e) => console.log("SFX Play Blocked", e));
+      sfx.play().catch(() => {});
     }
   }, [gameState.settings.sfxEnabled]);
 
@@ -115,6 +139,13 @@ const App: React.FC = () => {
     setGameState(prev => {
       const item = prev.inventory.find(i => i.id === itemId);
       if (!item) return prev;
+      
+      if (item.name === 'Bow' || item.name === 'Torch') {
+        setActiveToolId(current => current === itemId ? null : itemId);
+        playSFX(SFX_URLS.collect_item_generic, 0.4);
+        return prev;
+      }
+
       let newStats = { ...prev.stats };
       let consumed = false;
       
@@ -184,7 +215,6 @@ const App: React.FC = () => {
           newInventory = newInventory.map(item => item.name === 'Wood' ? { ...item, count: item.count - 3 } : item);
           newInventory = newInventory.map(item => item.name === 'Flint Stone' ? { ...item, count: item.count - 1 } : item).filter(i => i.count > 0);
           crafted = true;
-          // Spawn campfire 2.5 units in front of player
           const spawnX = playerInfoRef.current.x + playerInfoRef.current.dirX * 2.5;
           const spawnZ = playerInfoRef.current.z + playerInfoRef.current.dirZ * 2.5;
           return { ...prev, inventory: newInventory, campfires: [...prev.campfires, { id: Math.random().toString(), x: spawnX, z: spawnZ }]};
@@ -195,7 +225,7 @@ const App: React.FC = () => {
           newInventory = newInventory.map(i => i.name === 'Wood' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
           const arrowItem = newInventory.find(i => i.name === 'Arrow');
           if (arrowItem) arrowItem.count += 5;
-          else newInventory.push({ id: Math.random().toString(), name: 'Arrow', type: 'tool', count: 5 });
+          else newInventory.push({ id: Math.random().toString(), name: 'Arrow', type: 'resource', count: 5 });
           crafted = true;
         }
       } else if (type === 'bow') {
@@ -219,31 +249,36 @@ const App: React.FC = () => {
   }, [playSFX]);
 
   const handleCook = useCallback(() => {
-    setGameState(prev => {
-      const apple = prev.inventory.find(i => i.name === 'Apple');
-      const berries = prev.inventory.find(i => i.name === 'Berries');
-      const rawMeat = prev.inventory.find(i => i.name === 'Raw Meat');
-      if (!apple && !berries && !rawMeat) return prev;
-      playSFX(SFX_URLS.campfire_cook, 0.4);
-      let newInventory = [...prev.inventory];
-      if (rawMeat) {
-        newInventory = newInventory.map(i => i.name === 'Raw Meat' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
-        const existingCooked = newInventory.find(i => i.name === 'Cooked Meat');
-        if (existingCooked) existingCooked.count++;
-        else newInventory.push({ id: Math.random().toString(), name: 'Cooked Meat', type: 'food', count: 1 });
-      } else if (apple) {
-        newInventory = newInventory.map(i => i.name === 'Apple' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
-        const existingRoasted = newInventory.find(i => i.name === 'Roasted Apple');
-        if (existingRoasted) existingRoasted.count++;
-        else newInventory.push({ id: Math.random().toString(), name: 'Roasted Apple', type: 'food', count: 1 });
-      } else if (berries) {
-        newInventory = newInventory.map(i => i.name === 'Berries' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
-        const existingCooked = newInventory.find(i => i.name === 'Cooked Berries');
-        if (existingCooked) existingCooked.count++;
-        else newInventory.push({ id: Math.random().toString(), name: 'Cooked Berries', type: 'food', count: 1 });
-      }
-      return { ...prev, inventory: newInventory };
-    });
+    if (cookingTimeoutRef.current) return;
+    playSFX(SFX_URLS.campfire_cook, 0.4);
+    cookingTimeoutRef.current = window.setTimeout(() => {
+      setGameState(prev => {
+        const apple = prev.inventory.find(i => i.name === 'Apple');
+        const berries = prev.inventory.find(i => i.name === 'Berries');
+        const rawMeat = prev.inventory.find(i => i.name === 'Raw Meat');
+        if (!apple && !berries && !rawMeat) return prev;
+        
+        let newInventory = [...prev.inventory];
+        if (rawMeat) {
+          newInventory = newInventory.map(i => i.name === 'Raw Meat' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
+          const existingCooked = newInventory.find(i => i.name === 'Cooked Meat');
+          if (existingCooked) existingCooked.count++;
+          else newInventory.push({ id: Math.random().toString(), name: 'Cooked Meat', type: 'food', count: 1 });
+        } else if (apple) {
+          newInventory = newInventory.map(i => i.name === 'Apple' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
+          const existingRoasted = newInventory.find(i => i.name === 'Roasted Apple');
+          if (existingRoasted) existingRoasted.count++;
+          else newInventory.push({ id: Math.random().toString(), name: 'Roasted Apple', type: 'food', count: 1 });
+        } else if (berries) {
+          newInventory = newInventory.map(i => i.name === 'Berries' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
+          const existingCooked = newInventory.find(i => i.name === 'Cooked Berries');
+          if (existingCooked) existingCooked.count++;
+          else newInventory.push({ id: Math.random().toString(), name: 'Cooked Berries', type: 'food', count: 1 });
+        }
+        return { ...prev, inventory: newInventory };
+      });
+      cookingTimeoutRef.current = null;
+    }, 1000);
   }, [playSFX]);
 
   const handleShoot = useCallback(() => {
@@ -261,10 +296,10 @@ const App: React.FC = () => {
         if (e.key.toLowerCase() === 'x') { handleCraft('arrows'); return; }
         if (e.key.toLowerCase() === 'v') { handleCraft('bow'); return; }
         if (e.key.toLowerCase() === 't') { handleCraft('torch'); return; }
-        if (e.key.toLowerCase() === 'l') { setShowTodoList(prev => !prev); return; }
-        const key = parseInt(e.key);
-        if (!isNaN(key) && key >= 1 && key <= 9) {
-          const item = gameState.inventory[key - 1];
+        if (e.key.toLowerCase() === 'i') { setShowTodoList(prev => !prev); return; }
+        const keyNum = parseInt(e.key);
+        if (!isNaN(keyNum) && keyNum >= 1 && keyNum <= 9) {
+          const item = gameState.inventory[keyNum - 1];
           if (item) handleUseItem(item.id);
         }
       }
@@ -278,9 +313,13 @@ const App: React.FC = () => {
     const interval = setInterval(() => {
       setGameState(prev => {
         if (prev.stats.health <= 0) return prev;
+        const now = Date.now();
         const newStats = { ...prev.stats };
+        
+        // Decay logic
         newStats.hunger = Math.max(0, newStats.hunger - SURVIVAL_DECAY_RATES.hunger);
         newStats.thirst = Math.max(0, newStats.thirst - SURVIVAL_DECAY_RATES.thirst);
+        
         if (movementStatus.moving) {
           const loss = movementStatus.sprinting ? SURVIVAL_DECAY_RATES.energy_sprint : SURVIVAL_DECAY_RATES.energy_walk;
           newStats.energy = Math.max(0, newStats.energy - loss);
@@ -288,57 +327,100 @@ const App: React.FC = () => {
           newStats.energy = Math.min(100, newStats.energy + SURVIVAL_DECAY_RATES.energy_recovery);
         }
         newStats.energy = Math.max(0, newStats.energy - SURVIVAL_DECAY_RATES.energy_base);
-        const nearFire = prev.campfires.some(cf => {
+
+        // Proximity-based warmth mechanic
+        const campfireDistances = prev.campfires.map(cf => {
           const dx = cf.x - playerInfoRef.current.x;
           const dz = cf.z - playerInfoRef.current.z;
-          return Math.sqrt(dx*dx + dz*dz) < 10;
+          return Math.sqrt(dx*dx + dz*dz);
         });
+        const minDistanceToFire = campfireDistances.length > 0 ? Math.min(...campfireDistances) : Infinity;
+        
+        const maxWarmthRange = 12.0;
         const isNight = prev.time > 1900 || prev.time < 500;
-        if (nearFire) newStats.temperature = Math.min(38, newStats.temperature + SURVIVAL_DECAY_RATES.temp_fire_gain);
-        else {
-          const drop = isNight ? SURVIVAL_DECAY_RATES.temp_night_drop : SURVIVAL_DECAY_RATES.temp_day_drop;
-          newStats.temperature = Math.max(10, newStats.temperature - drop);
+        const environmentalDrop = isNight ? SURVIVAL_DECAY_RATES.temp_night_drop : SURVIVAL_DECAY_RATES.temp_day_drop;
+
+        if (minDistanceToFire < maxWarmthRange) {
+          setIsWarmingUp(true);
+          // Scale gain inversely with distance: max gain at 0, zero gain at max range
+          const warmthFactor = 1.0 - (minDistanceToFire / maxWarmthRange);
+          const fireGain = warmthFactor * SURVIVAL_DECAY_RATES.temp_fire_gain * 2.5; 
+          newStats.temperature = Math.min(38.5, newStats.temperature - environmentalDrop + fireGain);
+        } else {
+          setIsWarmingUp(false);
+          newStats.temperature = Math.max(10, newStats.temperature - environmentalDrop);
         }
-        if (newStats.hunger <= 0 || newStats.thirst <= 0 || newStats.energy <= 0 || newStats.temperature < 15) newStats.health = Math.max(0, newStats.health - 1.2);
-        else if (newStats.hunger > 60 && newStats.thirst > 60 && newStats.energy > 40 && newStats.temperature > 15) newStats.health = Math.min(100, newStats.health + 0.15);
-        if (newStats.hunger <= 15 && !isHungerCritical) { setIsHungerCritical(true); playSFX(SFX_URLS.hunger_critical, 0.7); }
-        else if (newStats.hunger > 15 && isHungerCritical) setIsHungerCritical(false);
-        if (newStats.thirst <= 15 && !isThirstCritical) { setIsThirstCritical(true); playSFX(SFX_URLS.thirst_critical, 0.7); }
-        else if (newStats.thirst > 15 && isThirstCritical) setIsThirstCritical(false);
+
+        // Health impact
+        if (newStats.hunger <= 0 || newStats.thirst <= 0 || newStats.energy <= 0 || newStats.temperature < 15) {
+          newStats.health = Math.max(0, newStats.health - 1.2);
+        } else if (newStats.hunger > 60 && newStats.thirst > 60 && newStats.energy > 40 && newStats.temperature > 15) {
+          newStats.health = Math.min(100, newStats.health + 0.15);
+        }
+        
+        // Critical Logic
+        const hungerCrit = newStats.hunger <= 15;
+        const thirstCrit = newStats.thirst <= 15;
+        
+        if (hungerCrit) {
+          setIsHungerCritical(true);
+          if (now - lastCriticalSoundRef.current.hunger > 10000) {
+            playSFX(SFX_URLS.hunger_critical, 0.8);
+            lastCriticalSoundRef.current.hunger = now;
+          }
+        } else setIsHungerCritical(false);
+
+        if (thirstCrit) {
+          setIsThirstCritical(true);
+          if (now - lastCriticalSoundRef.current.thirst > 10000) {
+            playSFX(SFX_URLS.thirst_critical, 0.8);
+            lastCriticalSoundRef.current.thirst = now;
+          }
+        } else setIsThirstCritical(false);
+
         if (newStats.health <= 0) setIsGameOver(true);
         
-        let newTime = prev.time + 3.0;
+        // Time cycle
+        let newTime = prev.time + 2.67;
         let newDay = prev.day;
         if (newTime >= 2400) { newTime = 0; newDay++; }
+        
         let newWeather = prev.weather;
         if (Math.random() < 0.005) newWeather = Math.random() < 0.3 ? 'rainy' : 'sunny';
+        
         return { ...prev, stats: newStats, time: newTime, day: newDay, weather: newWeather };
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [view, isLocked, movementStatus, isHungerCritical, isThirstCritical, playSFX, isMobile]);
+  }, [view, isLocked, movementStatus, playSFX, isMobile]);
 
   const restartGame = () => {
     const newState: GameState = {
       stats: { ...INITIAL_STATS },
       inventory: [
-        { id: '1', name: 'Flint Stone', type: 'resource', count: 1 },
-        { id: '2', name: 'Wood', type: 'resource', count: 5 },
-        { id: '3', name: 'Stone', type: 'resource', count: 2 },
-        { id: '4', name: 'Apple', type: 'food', count: 3 }
+        { id: '1', name: 'Flint Stone', type: 'resource', count: 3 },
+        { id: '2', name: 'Wood', type: 'resource', count: 12 },
+        { id: '3', name: 'Stone', type: 'resource', count: 8 },
+        { id: '4', name: 'Apple', type: 'food', count: 5 },
+        { id: '5', name: 'Raw Meat', type: 'food', count: 2 },
+        { id: '6', name: 'Arrow', type: 'resource', count: 10 }
       ],
       day: 1,
-      time: 600,
+      time: 1000,
       settings: gameState.settings,
       weather: 'sunny',
       campfires: []
     };
     playerInfoRef.current = { x: 120, z: 120, dirX: 0, dirZ: -1 };
+    setActiveToolId(null);
     setGameState(newState);
     setIsGameOver(false);
     setIsHungerCritical(false);
     setIsThirstCritical(false);
+    setIsWarmingUp(false);
+    lastCriticalSoundRef.current = { hunger: 0, thirst: 0 };
     setView('game');
+    setShowTodoList(true);
   };
 
   return (
@@ -354,13 +436,17 @@ const App: React.FC = () => {
             onCollect={handleCollect} 
             onDrink={handleDrink}
             onMovementChange={setMovementStatus}
-            onPositionUpdate={(info) => { playerInfoRef.current = info; }}
+            onPositionUpdate={(info) => { 
+              playerInfoRef.current = info;
+              const angle = Math.atan2(info.dirX, info.dirZ);
+              setPlayerRotation(angle);
+            }}
             onLockChange={setIsLocked}
             onCook={handleCook}
             onShoot={handleShoot}
-            hasBow={hasBow}
+            isBowActive={isBowActive}
+            isTorchActive={isTorchActive}
             arrowCount={arrowCount}
-            hasTorch={hasTorch}
             time={gameState.time}
             weather={gameState.weather}
             isLocked={isLocked}
@@ -377,10 +463,14 @@ const App: React.FC = () => {
             onCraft={handleCraft}
             isHungerCritical={isHungerCritical}
             isThirstCritical={isThirstCritical}
+            isWarmingUp={isWarmingUp}
             showTodoList={showTodoList}
             isMobile={isMobile}
             onMobileInput={setMobileInput}
+            playerRotation={playerRotation}
+            activeToolId={activeToolId}
           />
+          <AIAdvisor gameState={gameState} />
         </>
       )}
 

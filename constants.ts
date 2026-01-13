@@ -50,7 +50,7 @@ export const TRANSLATIONS = {
     bush: "PICK BERRIES",
     rock: "COLLECT STONE",
     water: "DRINK WATER",
-    campfire: "CAMPFIRE (COOK/WARM)",
+    campfire: "COOK FOOD / WARM UP",
     critter: "HUNT SQUIRREL",
     arrow: "PICK UP ARROW",
     walk: "WALK",
@@ -87,7 +87,15 @@ export const TRANSLATIONS = {
     taskMeat: "Hunt for Meat",
     tagline: "Survive in the Wildlands",
     on: "ON",
-    off: "OFF"
+    off: "OFF",
+    // Interaction Details
+    waterDetail: "Clean mountain water. Restores 20% Thirst.",
+    appleTreeDetail: "High-energy wild apples. Best for hunger.",
+    bushDetail: "Wild berries. Good for quick energy bursts.",
+    treeDetail: "Provides wood for building and heat.",
+    rockDetail: "Solid stone. Used for crafting flint and arrows.",
+    campfireDetail: "Restores body temperature and allows cooking.",
+    arrowDetail: "A projectile that can be retrieved and reused."
   },
   tr: {
     newGame: "YENİ OYUN",
@@ -111,7 +119,7 @@ export const TRANSLATIONS = {
     bush: "BÖĞÜRTLEN TOPLA",
     rock: "TAŞ TOPLA",
     water: "SU İÇ",
-    campfire: "KAMP ATEŞİ (PİŞİR/ISIN)",
+    campfire: "YEMEK PİŞİR / ISIN",
     critter: "SİNCAP AVLA",
     arrow: "OKU TOPLA",
     walk: "YÜRÜ",
@@ -148,7 +156,15 @@ export const TRANSLATIONS = {
     taskMeat: "Avlan ve Et Bul",
     tagline: "Vahşi Doğada Hayatta Kal",
     on: "AÇIK",
-    off: "KAPALI"
+    off: "KAPALI",
+    // Interaction Details
+    waterDetail: "Temiz dağ suyu. %20 Susuzluk giderir.",
+    appleTreeDetail: "Yabani elmalar. Açlık için en iyisidir.",
+    bushDetail: "Yabani meyveler. Hızlı enerji için ideal.",
+    treeDetail: "Isınma ve üretim için odun sağlar.",
+    rockDetail: "Ok ve çakmaktaşı üretimi için ham taş.",
+    campfireDetail: "Vücut ısısını dengeler ve yemek pişirir.",
+    arrowDetail: "Atılan oku yerden alarak tekrar kullanabilirsin."
   }
 };
 
