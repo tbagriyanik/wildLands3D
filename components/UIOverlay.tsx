@@ -270,7 +270,10 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                 {item.name === 'Arrow' && <ArrowIconSVG />}
                 {item.name === 'Bow' && '🏹'} {item.name === 'Torch' && '🔦'}
               </span>
-              <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-[10px] font-black w-6 h-6 flex items-center justify-center rounded-lg shadow-xl ring-2 ring-black/50">
+              <span 
+                key={item.count}
+                className="absolute -top-2 -right-2 bg-indigo-600 text-white text-[10px] font-black w-6 h-6 flex items-center justify-center rounded-lg shadow-xl ring-2 ring-black/50 animate-badge-pop"
+              >
                 {item.count}
               </span>
             </button>
@@ -291,9 +294,15 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
           60% { opacity: 0.5; }
           80% { opacity: 0.8; }
         }
+        @keyframes badge-pop {
+          0% { transform: scale(1); }
+          40% { transform: scale(1.6) rotate(10deg); filter: brightness(1.5); }
+          100% { transform: scale(1); }
+        }
         .animate-bounce-gentle { animation: bounce-gentle 2s ease-in-out infinite; }
         .animate-dizzy { animation: dizzy 8s ease-in-out infinite; }
         .animate-weak-flicker { animation: weak-flicker 0.8s ease-in-out infinite; }
+        .animate-badge-pop { animation: badge-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>

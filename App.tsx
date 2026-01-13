@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import GameScene, { GameSceneHandle } from './components/GameScene';
 import UIOverlay from './components/UIOverlay';
+import AIAdvisor from './components/AIAdvisor';
 import { GameState, InteractionTarget, MobileInput } from './types';
 import { INITIAL_STATS, SURVIVAL_DECAY_RATES, TRANSLATIONS, SFX_URLS } from './constants';
 
@@ -378,8 +379,8 @@ const App: React.FC = () => {
 
         if (newStats.health <= 0) setIsGameOver(true);
         
-        // Faster time progression: incremented from 2.67 to 8.0
-        let newTime = prev.time + 8.0; 
+        // Even faster time progression: increased from 8.0 to 12.0
+        let newTime = prev.time + 12.0; 
         let newDay = prev.day;
         if (newTime >= 2400) { newTime = 0; newDay++; }
         
@@ -468,6 +469,7 @@ const App: React.FC = () => {
             playerRotation={playerRotation}
             activeToolId={activeToolId}
           />
+          <AIAdvisor gameState={gameState} />
         </>
       )}
 

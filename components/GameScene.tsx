@@ -116,10 +116,13 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
 
   const createArrowMesh = () => {
     const group = new THREE.Group();
+    // Shaft
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.8, 6), new THREE.MeshStandardMaterial({ color: 0x8b4513 }));
     group.add(shaft);
+    // Metallic Tip
     const tip = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.12, 6), new THREE.MeshStandardMaterial({ color: 0x555555 }));
     tip.position.y = 0.46; group.add(tip);
+    // Feathers
     const fletchingMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, side: THREE.DoubleSide });
     for(let i=0; i<3; i++) {
       const f = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.18), fletchingMat);
@@ -139,8 +142,11 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     tempCamSide.crossVectors(tempCamDir, new THREE.Vector3(0,1,0)).normalize();
     arrow.position.copy(cameraRef.current.position).add(tempCamDir.clone().multiplyScalar(0.7)).add(tempCamSide.clone().multiplyScalar(0.2));
       
+    // Initial velocity from camera direction
     const velocity = tempCamDir.clone().multiplyScalar(90);
-    arrow.lookAt(arrow.position.clone().add(velocity)); arrow.rotateX(Math.PI/2);
+    arrow.lookAt(arrow.position.clone().add(velocity)); 
+    arrow.rotateX(Math.PI/2); // Align cylinder axis with direction
+    
     sceneRef.current.add(arrow);
     (window as any).projectiles = (window as any).projectiles || [];
     (window as any).projectiles.push({ mesh: arrow, velocity, isStuck: false, creationTime: Date.now() });
@@ -185,11 +191,10 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer shadows
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
     
-    // VIVID COLOR SETTINGS
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.25;
+    renderer.toneMappingExposure = 1.35; // Bright and vivid
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     
     mountRef.current.appendChild(renderer.domElement);
@@ -210,13 +215,12 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     scene.add(stars);
     starsRef.current = stars;
 
-    const sunLight = new THREE.DirectionalLight(0xfffaf0, 1.5); sunLight.castShadow = true;
+    const sunLight = new THREE.DirectionalLight(0xfffaf0, 1.6); sunLight.castShadow = true;
     sunLight.shadow.mapSize.set(1024, 1024);
     sunLight.shadow.bias = -0.0005;
     scene.add(sunLight); sunLightRef.current = sunLight;
 
-    // LIGHTER SHADOWS - High Ambient Light
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9); // High ambient light for softer shadows
     scene.add(ambientLight);
     ambientLightRef.current = ambientLight;
 
@@ -365,7 +369,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
             const uniforms = skyRef.current.material.uniforms;
             uniforms['sunPosition'].value.copy(tempVec);
             uniforms['turbidity'].value = 10 * (1 - lFactor) + 2;
-            uniforms['rayleigh'].value = 4 * lFactor + 0.5; // Slightly more rayleigh for vivid sky
+            uniforms['rayleigh'].value = 5 * lFactor + 0.5; // Vivid sky
             uniforms['mieCoefficient'].value = 0.005;
             uniforms['mieDirectionalG'].value = 0.8;
         }
@@ -377,8 +381,8 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
         
         if (sunLightRef.current) {
             sunLightRef.current.position.copy(tempVec).multiplyScalar(100);
-            sunLightRef.current.intensity = Math.max(0, sunAltitude) * 1.8;
-            if (sunAltitude < 0.2 && sunAltitude > -0.2) sunLightRef.current.color.setHSL(0.05, 0.9, 0.6); // Vivid sunset
+            sunLightRef.current.intensity = Math.max(0.1, sunAltitude * 2.0); // Never zifiri karanlık
+            if (sunAltitude < 0.2 && sunAltitude > -0.2) sunLightRef.current.color.setHSL(0.05, 1.0, 0.65); // Warm Sunset
             else sunLightRef.current.color.setHSL(0.1, 0.3, 1.0);
             sunLightRef.current.shadow.camera.position.set(camera.position.x, 50, camera.position.z);
             sunLightRef.current.target.position.set(camera.position.x, 0, camera.position.z);
@@ -386,19 +390,18 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
         }
 
         if (ambientLightRef.current) {
-          // Keep ambient light high to soften shadows
-          const baseIntensity = isDay ? 0.75 : 0.25;
+          const baseIntensity = isDay ? 0.85 : 0.35; // Lighter shadows
           ambientLightRef.current.intensity = baseIntensity + (lFactor * 0.3);
           
-          if (!isDay) ambientLightRef.current.color.setHex(0x252545); // Indigo night
-          else if (sunAltitude < 0.2) ambientLightRef.current.color.setHex(0xffbb99); // Warm dawn
+          if (!isDay) ambientLightRef.current.color.setHex(0x303055); // Vivid Night
+          else if (sunAltitude < 0.2) ambientLightRef.current.color.setHex(0xffccaa); // Sunset Warmth
           else ambientLightRef.current.color.setHex(0xffffff);
         }
 
         if (sceneRef.current && sceneRef.current.fog) {
           const fog = sceneRef.current.fog as THREE.FogExp2;
-          if (isDay) fog.color.setHSL(0.6, 0.3, Math.max(0.15, sunAltitude * 0.6));
-          else fog.color.setHex(0x0a0a1a);
+          if (isDay) fog.color.setHSL(0.6, 0.4, Math.max(0.2, sunAltitude * 0.7));
+          else fog.color.setHex(0x0c0c2a);
         }
 
         if (now > nextAmbientTimeRef.current) {
@@ -412,7 +415,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
 
         if (torchModelRef.current && isTorchActive) {
           const flicker = 0.9 + Math.random() * 0.2;
-          torchLightRef.current!.intensity = 130 * flicker;
+          torchLightRef.current!.intensity = 150 * flicker;
           torchModelRef.current.position.y = -0.3 + Math.sin(now * 0.004) * 0.025; 
           torchModelRef.current.rotation.z = Math.sin(now * 0.002) * 0.04;
         }
@@ -444,17 +447,23 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
                   mesh.scale.y = flicker * (1.1 + Math.sin(now * 0.015 + i) * 0.25); 
                   mesh.scale.x = mesh.scale.z = 1.0 + Math.cos(now * 0.012) * 0.1;
                 });
-                light.intensity = 20 + Math.random() * 10;
+                light.intensity = 25 + Math.random() * 10;
             }
         });
 
         const currentProjectiles = (window as any).projectiles || [];
         (window as any).projectiles = currentProjectiles.filter((p: any) => {
           if (p.isStuck) return true;
-          p.velocity.y -= 9.8 * delta;
-          p.mesh.position.add(p.velocity.clone().multiplyScalar(delta));
-          p.mesh.lookAt(p.mesh.position.clone().add(p.velocity)); p.mesh.rotateX(Math.PI/2);
           
+          // Apply gravity
+          p.velocity.y -= 12.0 * delta; 
+          p.mesh.position.add(p.velocity.clone().multiplyScalar(delta));
+          
+          // Update rotation to match trajectory during flight
+          p.mesh.lookAt(p.mesh.position.clone().add(p.velocity)); 
+          p.mesh.rotateX(Math.PI/2);
+          
+          // Check for animal hits
           critterGroupRef.current.children.forEach(c => {
             if (c.visible && c.position.distanceTo(p.mesh.position) < 1.5) {
               c.visible = false;
@@ -463,20 +472,28 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
             }
           });
 
-          if (p.mesh.position.y < 0.2) { 
+          // Ground landing logic: "Yere yatay olarak düşer"
+          if (p.mesh.position.y < 0.1) { 
             p.isStuck = true; 
-            p.mesh.position.y = 0.2; 
+            p.mesh.position.y = 0.1; 
+            // Once grounded, it lies flat horizontally
+            p.mesh.rotation.x = Math.PI / 2;
+            p.mesh.rotation.z = Math.random() * Math.PI * 2; // Random flat rotation
             groundedArrowsRef.current.push(p.mesh); 
           }
           return true;
         });
 
+        // Automatic Proximity Pickup: "Yakınlaşınca ok geri alınır"
         for (let i = groundedArrowsRef.current.length - 1; i >= 0; i--) {
             const arrow = groundedArrowsRef.current[i];
-            if (camera.position.distanceTo(arrow.position) < 3.5) {
+            const dist = camera.position.distanceTo(arrow.position);
+            if (dist < 4.0) { // Intuitive pickup range
                 propsRef.current.onCollect('Arrow');
                 scene.remove(arrow);
                 groundedArrowsRef.current.splice(i, 1);
+                // Also remove from global projectiles to be clean
+                (window as any).projectiles = (window as any).projectiles.filter((p: any) => p.mesh !== arrow);
             }
         }
 
