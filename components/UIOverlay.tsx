@@ -1,5 +1,5 @@
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { GameState, InteractionTarget, MobileInput, InventoryItem } from '../types';
 import { COLORS, TRANSLATIONS } from '../constants';
 
@@ -73,6 +73,54 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   const [deltas, setDeltas] = useState<DeltaIndicator[]>([]);
   const [pulseItems, setPulseItems] = useState<Record<string, boolean>>({});
   const prevInventoryRef = useRef<InventoryItem[]>([]);
+  const joystickRef = useRef<{ startX: number; startY: number; isActive: boolean }>({ startX: 0, startY: 0, isActive: false });
+  const lookRef = useRef<{ lastX: number; lastY: number; isActive: boolean }>({ lastX: 0, lastY: 0, isActive: false });
+
+  // Mobile Joystick (Left side)
+  const handleJoystickStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    joystickRef.current = { startX: touch.clientX, startY: touch.clientY, isActive: true };
+  };
+
+  const handleJoystickMove = (e: React.TouchEvent) => {
+    if (!joystickRef.current.isActive) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - joystickRef.current.startX;
+    const dy = touch.clientY - joystickRef.current.startY;
+    const dist = Math.min(50, Math.sqrt(dx * dx + dy * dy));
+    const angle = Math.atan2(dy, dx);
+    const moveX = (Math.cos(angle) * dist) / 50;
+    const moveY = -(Math.sin(angle) * dist) / 50;
+    onMobileInput(prev => ({ ...prev, moveX, moveY }));
+  };
+
+  const handleJoystickEnd = () => {
+    joystickRef.current.isActive = false;
+    onMobileInput(prev => ({ ...prev, moveX: 0, moveY: 0 }));
+  };
+
+  // Mobile Look (Right side)
+  const handleLookStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    lookRef.current = { lastX: touch.clientX, lastY: touch.clientY, isActive: true };
+  };
+
+  const handleLookMove = (e: React.TouchEvent) => {
+    if (!lookRef.current.isActive) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - lookRef.current.lastX;
+    const dy = touch.clientY - lookRef.current.lastY;
+    lookRef.current.lastX = touch.clientX;
+    lookRef.current.lastY = touch.clientY;
+    onMobileInput(prev => ({ ...prev, lookX: dx, lookY: dy }));
+    // Reset deltas after the render cycle so they don't apply twice
+    setTimeout(() => onMobileInput(prev => ({ ...prev, lookX: 0, lookY: 0 })), 0);
+  };
+
+  const handleLookEnd = () => {
+    lookRef.current.isActive = false;
+    onMobileInput(prev => ({ ...prev, lookX: 0, lookY: 0 }));
+  };
 
   useEffect(() => {
     const newDeltas: DeltaIndicator[] = [];
@@ -288,13 +336,38 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         </div>
       </div>
 
+      {/* Mobile Controls (Added Joystick and Look Pad) */}
+      {isMobile && (
+        <div className="absolute inset-0 pointer-events-none z-30">
+          {/* Movement Joystick (Left) */}
+          <div 
+            className="absolute bottom-12 left-12 w-40 h-40 bg-white/5 backdrop-blur-md rounded-full border-4 border-white/20 flex items-center justify-center pointer-events-auto touch-none shadow-2xl"
+            onTouchStart={handleJoystickStart}
+            onTouchMove={handleJoystickMove}
+            onTouchEnd={handleJoystickEnd}
+          >
+            <div className="w-16 h-16 bg-indigo-500 rounded-full border-4 border-white shadow-[0_0_20px_rgba(99,102,241,1)]" />
+          </div>
+
+          {/* Look Area (Right) */}
+          <div 
+            className="absolute bottom-12 right-12 w-48 h-48 bg-white/5 backdrop-blur-md rounded-3xl border-4 border-white/20 flex items-center justify-center pointer-events-auto touch-none shadow-2xl"
+            onTouchStart={handleLookStart}
+            onTouchMove={handleLookMove}
+            onTouchEnd={handleLookEnd}
+          >
+            <span className="text-[10px] font-black uppercase tracking-widest text-white/40">{t.look}</span>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-4 z-10 w-full items-center mb-20 sm:mb-6">
         <div className="bg-black/80 backdrop-blur-3xl p-2.5 rounded-2xl border border-white/10 flex gap-2.5 max-w-[95vw] sm:max-w-3xl overflow-x-auto no-scrollbar shadow-[0_20px_60px_rgba(0,0,0,0.8)] pointer-events-auto ring-1 ring-white/5">
           {inventory.map((item, index) => (
             <button 
               key={item.id} 
               onClick={() => onUseItem(item.id)} 
-              className={`relative group min-w-[52px] h-[52px] sm:min-w-[64px] sm:h-[64px] bg-white/5 hover:bg-white/10 rounded-xl border-2 transition-all flex flex-col items-center justify-center active:scale-90 ${activeToolId === item.id ? 'border-indigo-500 bg-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.5)] scale-110 z-10' : 'border-white/5'} ${pulseItems[item.name] ? 'animate-item-pop border-indigo-400 shadow-[0_0_30px_rgba(99,102,241,0.8)]' : ''}`}
+              className={`relative group min-w-[52px] h-[52px] sm:min-w-[64px] sm:h-[64px] bg-white/5 hover:bg-white/10 rounded-xl border-2 transition-all flex flex-col items-center justify-center active:scale-90 ${activeToolId === item.id ? 'border-indigo-500 bg-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.5)] scale-110 z-10' : 'border-white/5'} ${pulseItems[item.name] ? 'animate-item-pop border-indigo-400 shadow-[0_0_60px_rgba(99,102,241,1)] z-50' : ''}`}
             >
               {!isMobile && index < 9 && <span className="absolute top-0.5 left-1 text-[10px] font-black text-indigo-400">{index + 1}</span>}
               <span className="text-2xl sm:text-3xl drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)] w-10 h-10 flex items-center justify-center">
@@ -308,17 +381,17 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
               </span>
               <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-[10px] font-black w-6 h-6 flex items-center justify-center rounded-lg shadow-xl ring-2 ring-black/50">{item.count}</span>
               
-              {/* Floating Delta Badges - Exaggerated */}
+              {/* Floating Delta Badges - EXTREMELY EXAGGERATED */}
               {deltas.filter(d => d.itemName === item.name).map(delta => (
                 <div 
                   key={delta.id} 
-                  className={`absolute -top-12 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full font-black text-lg z-50 pointer-events-none shadow-[0_0_40px_rgba(0,0,0,0.8)] animate-delta-float border-4 ${
+                  className={`absolute -top-16 left-1/2 -translate-x-1/2 px-6 py-2.5 rounded-full font-black text-3xl z-[100] pointer-events-none shadow-[0_0_100px_rgba(0,0,0,1)] animate-delta-float border-4 ${
                     delta.amount > 0 
-                    ? 'bg-green-600 border-green-300 text-white shadow-green-500/50' 
-                    : 'bg-red-600 border-red-300 text-white shadow-red-500/50'
+                    ? 'bg-green-500 border-green-200 text-white shadow-green-500/80' 
+                    : 'bg-red-500 border-red-200 text-white shadow-red-500/80'
                   }`}
                 >
-                  {delta.amount > 0 ? `+${delta.amount}` : delta.amount}
+                  <span className="drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)]">{delta.amount > 0 ? `+${delta.amount}` : delta.amount}</span>
                 </div>
               ))}
             </button>
@@ -330,23 +403,23 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         @keyframes bounce-gentle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
         @keyframes dizzy { 0%, 100% { filter: blur(0px); transform: rotate(0deg); } 50% { filter: blur(1.5px); transform: rotate(0.2deg); } }
         @keyframes delta-float { 
-          0% { transform: translate(-50%, 40px) scale(0); opacity: 0; filter: blur(10px); } 
-          15% { opacity: 1; transform: translate(-50%, -20px) scale(1.8); filter: blur(0px); } 
-          30% { transform: translate(-50%, -30px) scale(1.4); }
-          80% { opacity: 1; transform: translate(-50%, -100px) scale(1.2); } 
-          100% { transform: translate(-50%, -160px) scale(0.6); opacity: 0; } 
+          0% { transform: translate(-50%, 80px) scale(0); opacity: 0; filter: blur(30px) brightness(2); } 
+          12% { opacity: 1; transform: translate(-50%, -60px) scale(2.8); filter: blur(0px) brightness(1.5); } 
+          30% { transform: translate(-50%, -100px) scale(1.8); }
+          75% { opacity: 1; transform: translate(-50%, -220px) scale(1.6); } 
+          100% { transform: translate(-50%, -350px) scale(0.4); opacity: 0; filter: blur(10px); } 
         }
         @keyframes item-pop {
-          0% { transform: scale(1); rotate: 0deg; }
-          25% { transform: scale(1.6); rotate: 15deg; }
-          50% { transform: scale(1.3); rotate: -15deg; }
-          75% { transform: scale(1.4); rotate: 5deg; }
-          100% { transform: scale(1); rotate: 0deg; }
+          0% { transform: scale(1); rotate: 0deg; filter: brightness(1) saturate(1); }
+          20% { transform: scale(2.5); rotate: 30deg; filter: brightness(2.5) saturate(2) drop-shadow(0 0 50px white); }
+          40% { transform: scale(1.4); rotate: -30deg; }
+          65% { transform: scale(1.8); rotate: 15deg; }
+          100% { transform: scale(1); rotate: 0deg; filter: brightness(1) saturate(1); }
         }
         .animate-bounce-gentle { animation: bounce-gentle 2s ease-in-out infinite; }
         .animate-dizzy { animation: dizzy 8s ease-in-out infinite; }
-        .animate-delta-float { animation: delta-float 1.8s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards; }
-        .animate-item-pop { animation: item-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .animate-delta-float { animation: delta-float 2.5s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards; }
+        .animate-item-pop { animation: item-pop 0.9s cubic-bezier(0.34, 1.56, 0.64, 1); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
     </div>

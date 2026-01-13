@@ -36,6 +36,7 @@ export interface GameSceneHandle {
 const tempVec = new THREE.Vector3();
 const tempCamDir = new THREE.Vector3();
 const tempCamSide = new THREE.Vector3();
+const euler = new THREE.Euler(0, 0, 0, 'YXZ');
 
 const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ 
   onInteract, onCollect, onDrink, onMovementChange, onPositionUpdate, onLockChange, onCook, onShoot, isBowActive, isTorchActive, arrowCount, time, weather, isLocked, isMobile, mobileInput, sfxEnabled, campfires
@@ -54,7 +55,11 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
   const groundedArrowsRef = useRef<THREE.Object3D[]>([]);
   const waterRef = useRef<Water | null>(null);
   
-  const propsRef = useRef({ onInteract, onCollect, onDrink, onCook, onShoot, onMovementChange, onPositionUpdate, onLockChange, isBowActive, isTorchActive, arrowCount, time, weather, sfxEnabled, isMobile });
+  // Hand Items
+  const bowInHandRef = useRef<THREE.Group | null>(null);
+  const torchInHandRef = useRef<THREE.Group | null>(null);
+  
+  const propsRef = useRef({ onInteract, onCollect, onDrink, onCook, onShoot, onMovementChange, onPositionUpdate, onLockChange, isBowActive, isTorchActive, arrowCount, time, weather, sfxEnabled, isMobile, mobileInput });
 
   const playSFX = (url: string, volume = 0.4, randomizePitch = true) => {
     if (propsRef.current.sfxEnabled) {
@@ -66,11 +71,11 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
   };
 
   useEffect(() => {
-    propsRef.current = { onInteract, onCollect, onDrink, onCook, onShoot, onMovementChange, onPositionUpdate, onLockChange, isBowActive, isTorchActive, arrowCount, time, weather, sfxEnabled, isMobile };
-    if (torchLightRef.current) {
-      torchLightRef.current.visible = isTorchActive;
-    }
-  }, [onInteract, onCollect, onDrink, onCook, onShoot, onMovementChange, onPositionUpdate, onLockChange, isBowActive, isTorchActive, arrowCount, time, weather, isLocked, isMobile, sfxEnabled]);
+    propsRef.current = { onInteract, onCollect, onDrink, onCook, onShoot, onMovementChange, onPositionUpdate, onLockChange, isBowActive, isTorchActive, arrowCount, time, weather, sfxEnabled, isMobile, mobileInput };
+    if (torchLightRef.current) torchLightRef.current.visible = isTorchActive;
+    if (bowInHandRef.current) bowInHandRef.current.visible = isBowActive;
+    if (torchInHandRef.current) torchInHandRef.current.visible = isTorchActive;
+  }, [onInteract, onCollect, onDrink, onCook, onShoot, onMovementChange, onPositionUpdate, onLockChange, isBowActive, isTorchActive, arrowCount, time, weather, isLocked, isMobile, sfxEnabled, mobileInput]);
 
   useEffect(() => {
     if (!sceneRef.current) return;
@@ -78,27 +83,30 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     campfires.forEach(cf => {
       const group = new THREE.Group();
       group.position.set(cf.x, 0, cf.z);
-      group.userData = { type: 'campfire', id: cf.id, isObstacle: true, radius: 0.8 };
+      group.userData = { type: 'campfire', id: cf.id, isObstacle: true, radius: 1.2 };
       
-      const logGeo = new THREE.CylinderGeometry(0.15, 0.15, 1.2, 6); 
-      const logMat = new THREE.MeshStandardMaterial({ color: 0x5a3e2b, roughness: 0.8 });
-      for(let i=0; i<4; i++) {
+      const logGeo = new THREE.CylinderGeometry(0.12, 0.12, 1.0, 6); 
+      const logMat = new THREE.MeshStandardMaterial({ color: 0x4a2e1b, roughness: 0.9 });
+      for(let i=0; i<5; i++) {
         const log = new THREE.Mesh(logGeo, logMat);
-        log.rotation.x = Math.PI/2; log.rotation.z = (i * Math.PI) / 2;
-        log.position.y = 0.1; log.castShadow = true; group.add(log);
+        log.rotation.x = Math.PI/2; 
+        log.rotation.z = (i * Math.PI * 2) / 5;
+        log.position.y = 0.05;
+        log.castShadow = true; 
+        group.add(log);
       }
 
-      const fireInner = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.4, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-      fireInner.position.y = 0.7; group.add(fireInner);
+      const fireInner = new THREE.Mesh(new THREE.ConeGeometry(0.25, 1.2, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      fireInner.position.y = 0.6; group.add(fireInner);
       
-      const fireMid = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.1, 8), new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.9 }));
-      fireMid.position.y = 0.55; group.add(fireMid);
+      const fireMid = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.9, 8), new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.9 }));
+      fireMid.position.y = 0.45; group.add(fireMid);
 
-      const fireOuter = new THREE.Mesh(new THREE.ConeGeometry(0.65, 0.8, 8), new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0.7 }));
-      fireOuter.position.y = 0.4; group.add(fireOuter);
+      const fireOuter = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.7, 8), new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0.7 }));
+      fireOuter.position.y = 0.35; group.add(fireOuter);
       
-      const light = new THREE.PointLight(0xff7700, 25, 60); 
-      light.position.y = 1.3; 
+      const light = new THREE.PointLight(0xff7700, 30, 15); 
+      light.position.y = 1.0; 
       light.castShadow = true; 
       group.add(light);
       
@@ -110,16 +118,16 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
 
   const createArrowMesh = () => {
     const group = new THREE.Group();
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.8, 6), new THREE.MeshStandardMaterial({ color: 0x8b4513 }));
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.8, 6), new THREE.MeshStandardMaterial({ color: 0x6b3e1a }));
     group.add(shaft);
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.12, 6), new THREE.MeshStandardMaterial({ color: 0x555555 }));
-    tip.position.y = 0.46; group.add(tip);
-    const fletchingMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, side: THREE.DoubleSide });
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 6), new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8 }));
+    tip.position.y = 0.45; group.add(tip);
+    const fletchingMat = new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
     for(let i=0; i<3; i++) {
-      const f = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.18), fletchingMat);
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.15), fletchingMat);
       f.position.y = -0.3; f.rotation.y = (i * Math.PI * 2) / 3;
-      f.position.x = 0.03 * Math.cos(f.rotation.y);
-      f.position.z = 0.03 * Math.sin(f.rotation.y);
+      f.position.x = 0.02 * Math.cos(f.rotation.y);
+      f.position.z = 0.02 * Math.sin(f.rotation.y);
       group.add(f);
     }
     group.userData = { type: 'arrow' };
@@ -133,20 +141,13 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     tempCamSide.crossVectors(tempCamDir, new THREE.Vector3(0,1,0)).normalize();
     arrow.position.copy(cameraRef.current.position).add(tempCamDir.clone().multiplyScalar(0.7)).add(tempCamSide.clone().multiplyScalar(0.2));
       
-    const velocity = tempCamDir.clone().multiplyScalar(90);
+    const velocity = tempCamDir.clone().multiplyScalar(100);
     arrow.lookAt(arrow.position.clone().add(velocity)); 
     arrow.rotateX(Math.PI/2); 
     
     sceneRef.current.add(arrow);
     (window as any).projectiles = (window as any).projectiles || [];
-    (window as any).projectiles.push({ 
-      mesh: arrow, 
-      velocity, 
-      isStuck: false, 
-      stuckTo: null, 
-      localOffset: null,
-      creationTime: Date.now() 
-    });
+    (window as any).projectiles.push({ mesh: arrow, velocity, isStuck: false, stuckTo: null });
     propsRef.current.onShoot();
     playSFX(SFX_URLS.arrow_shoot, 0.5);
   };
@@ -165,19 +166,12 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     if(hits.length > 0 && hits[0].distance < 8) {
         let o = hits[0].object; while(o.parent && !o.userData.type) o = o.parent;
         const t = o.userData.type;
-        let interacted = false;
-
-        if(t === 'water') { propsRef.current.onDrink(); interacted = true; }
-        else if(t === 'campfire') { propsRef.current.onCook(); interacted = true; }
-        else if (t === 'tree' || t === 'appleTree') { propsRef.current.onCollect(t === 'appleTree' ? 'Apple' : 'Wood'); o.visible = false; o.userData.isObstacle = false; interacted = true; }
-        else if (t === 'rock' || t === 'bush') { propsRef.current.onCollect(t === 'rock' ? 'Stone' : 'Berries'); o.visible = false; o.userData.isObstacle = false; interacted = true; }
-        else if (t === 'rabbit' || t === 'partridge' || t === 'critter') { 
-          propsRef.current.onCollect('Raw Meat'); 
-          o.visible = false; 
-          interacted = true; 
-        }
-
-        if (interacted) {
+        if (t) {
+          if(t === 'water') propsRef.current.onDrink();
+          else if(t === 'campfire') propsRef.current.onCook();
+          else if (t === 'tree' || t === 'appleTree') { propsRef.current.onCollect(t === 'appleTree' ? 'Apple' : 'Wood'); o.visible = false; o.userData.isObstacle = false; }
+          else if (t === 'rock' || t === 'bush') { propsRef.current.onCollect(t === 'rock' ? 'Stone' : 'Berries'); o.visible = false; o.userData.isObstacle = false; }
+          else if (t === 'rabbit' || t === 'partridge' || t === 'critter') { propsRef.current.onCollect('Raw Meat'); o.visible = false; }
           propsRef.current.onInteract({ type: 'none' });
         }
     }
@@ -190,8 +184,9 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     if (!mountRef.current) return;
     const scene = new THREE.Scene(); sceneRef.current = scene;
     scene.add(critterGroupRef.current);
+    scene.add(campfireGroupRef.current);
     scene.fog = new THREE.FogExp2(0x1a1a1a, 0.002);
-    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1500);
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 2000);
     camera.position.set(120, 1.8, 120); cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -200,88 +195,94 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.35; 
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     mountRef.current.appendChild(renderer.domElement);
 
+    // Better Sky Setup
     const sky = new Sky(); sky.scale.setScalar(450000); scene.add(sky); skyRef.current = sky;
     const sunLight = new THREE.DirectionalLight(0xfffaf0, 1.6); sunLight.castShadow = true;
     sunLight.shadow.mapSize.set(1024, 1024);
-    sunLight.shadow.bias = -0.0005;
+    sunLight.shadow.camera.left = sunLight.shadow.camera.bottom = -500;
+    sunLight.shadow.camera.right = sunLight.shadow.camera.top = 500;
     scene.add(sunLight); sunLightRef.current = sunLight;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9); 
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4); 
     scene.add(ambientLight); ambientLightRef.current = ambientLight;
 
-    // Torch Light initialization
     const torchLight = new THREE.PointLight(0xff9900, 0, 40); 
     torchLight.castShadow = true;
-    torchLight.shadow.mapSize.set(512, 512);
-    scene.add(torchLight);
-    torchLightRef.current = torchLight;
+    scene.add(torchLight); torchLightRef.current = torchLight;
 
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(1500, 1500), new THREE.MeshStandardMaterial({ color: 0x224422, roughness: 1.0 }));
+    // Hand Models (First Person View)
+    const bowModel = new THREE.Group();
+    const bowCurves = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.015, 8, 24, Math.PI), new THREE.MeshStandardMaterial({ color: 0x4a2e1b }));
+    bowCurves.rotation.z = Math.PI / 2;
+    bowModel.add(bowCurves);
+    const bowString = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, 0.8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    bowModel.add(bowString);
+    bowModel.position.set(0.35, -0.4, -0.6);
+    bowModel.rotation.set(0.2, -0.2, 0);
+    camera.add(bowModel);
+    bowInHandRef.current = bowModel;
+
+    const torchModel = new THREE.Group();
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.6), new THREE.MeshStandardMaterial({ color: 0x5a3e2b }));
+    torchModel.add(handle);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.03, 0.15), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+    top.position.y = 0.3; torchModel.add(top);
+    const flame = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff7700 }));
+    flame.position.y = 0.42; torchModel.add(flame);
+    torchModel.position.set(0.45, -0.4, -0.6);
+    torchModel.rotation.set(-0.2, 0.2, 0);
+    camera.add(torchModel);
+    scene.add(camera); // Add camera to scene so child models follow
+    torchInHandRef.current = torchModel;
+
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), new THREE.MeshStandardMaterial({ color: 0x1a2e1a, roughness: 1.0 }));
     ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
-
-    const barkTex = new THREE.MeshStandardMaterial({ color: 0x5a3e2b });
-    const stoneTex = new THREE.MeshStandardMaterial({ color: 0x888888 });
 
     const createFoliageLOD = (x: number, z: number, type: string) => {
         const lod = new THREE.LOD();
         lod.position.set(x, 0, z);
+        const barkMat = new THREE.MeshStandardMaterial({ color: 0x4a2e1b });
         if (type === 'tree' || type === 'appleTree') {
-            const h = 5 + Math.random() * 3;
+            const h = 6 + Math.random() * 4;
             const g0 = new THREE.Group();
-            const t0 = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, h, 4), barkTex); t0.position.y = h/2; t0.castShadow = true; g0.add(t0);
-            const foliageColor = type === 'appleTree' ? 0x3d7c36 : 0x1e4a2d;
-            const l0 = new THREE.Mesh(new THREE.ConeGeometry(3, 6, 4), new THREE.MeshStandardMaterial({ color: foliageColor })); l0.position.y = h+2; l0.castShadow = true; g0.add(l0);
-            lod.addLevel(g0, 0);
-            lod.addLevel(new THREE.Group(), 150);
-            lod.userData = { type, isObstacle: true, radius: 0.9 };
+            const t0 = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.45, h, 6), barkMat); t0.position.y = h/2; t0.castShadow = true; g0.add(t0);
+            const foliageCol = type === 'appleTree' ? 0x2d5a27 : 0x1e3a1a;
+            const l0 = new THREE.Mesh(new THREE.ConeGeometry(3.5, 7, 6), new THREE.MeshStandardMaterial({ color: foliageCol })); l0.position.y = h+2; l0.castShadow = true; g0.add(l0);
+            lod.addLevel(g0, 0); lod.addLevel(new THREE.Group(), 180);
+            lod.userData = { type, isObstacle: true, radius: 0.8 };
         } else if (type === 'rock') {
-            const s = 1 + Math.random();
-            const r0 = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), stoneTex); r0.position.y = s*0.4; r0.castShadow = true;
-            lod.addLevel(r0, 0);
-            lod.addLevel(new THREE.Group(), 120);
-            lod.userData = { type, isObstacle: true, radius: s*0.8 };
+            const s = 1.2 + Math.random() * 0.8;
+            const r0 = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), new THREE.MeshStandardMaterial({ color: 0x777777 })); r0.position.y = s*0.4; r0.castShadow = true;
+            lod.addLevel(r0, 0); lod.addLevel(new THREE.Group(), 150);
+            lod.userData = { type, isObstacle: true, radius: s*0.7 };
         } else if (type === 'bush') {
-          const b = new THREE.Mesh(new THREE.IcosahedronGeometry(1.2, 0), new THREE.MeshStandardMaterial({ color: 0x3a7c2a }));
-          b.position.y = 0.6; lod.addLevel(b, 0); lod.addLevel(new THREE.Group(), 80);
+          const b = new THREE.Mesh(new THREE.IcosahedronGeometry(1.4, 0), new THREE.MeshStandardMaterial({ color: 0x2d5a27 }));
+          b.position.y = 0.7; lod.addLevel(b, 0); lod.addLevel(new THREE.Group(), 100);
           lod.userData = { type };
         }
         lod.updateMatrix(); lod.matrixAutoUpdate = false;
         scene.add(lod); worldObjectsRef.current.push(lod);
     };
 
-    const createCritter = (x: number, z: number, type: 'rabbit' | 'partridge' | 'critter') => {
-      const group = new THREE.Group();
-      group.position.set(x, 0, z);
-      let body;
-      if (type === 'rabbit') {
-        body = new THREE.Mesh(new THREE.CapsuleGeometry(0.15, 0.3, 2, 4), new THREE.MeshStandardMaterial({ color: 0xcccccc }));
-        const earL = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.05), body.material); earL.position.set(0.08, 0.3, 0); group.add(earL);
-        const earR = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.05), body.material); earR.position.set(-0.08, 0.3, 0); group.add(earR);
-      } else if (type === 'partridge') {
-        body = new THREE.Mesh(new THREE.SphereGeometry(0.12, 4, 4), new THREE.MeshStandardMaterial({ color: 0x9c5c2d }));
-        const head = new THREE.Mesh(new THREE.SphereGeometry(0.06, 4, 4), body.material); head.position.set(0, 0.15, 0.1); group.add(head);
-      } else {
-        body = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshStandardMaterial({ color: 0x9c5c2d }));
-      }
-      body.position.y = 0.15; body.castShadow = true; group.add(body);
-      group.userData = { type, targetX: x, targetZ: z, speed: 0.02 + Math.random() * 0.04 };
-      critterGroupRef.current.add(group);
+    const createCritter = (x: number, z: number, type: string) => {
+      const g = new THREE.Group(); g.position.set(x, 0, z);
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.2, 6, 6), new THREE.MeshStandardMaterial({ color: 0xaaaaaa }));
+      m.position.y = 0.2; m.castShadow = true; g.add(m);
+      g.userData = { type, targetX: x, targetZ: z, speed: 0.03 + Math.random()*0.03 };
+      critterGroupRef.current.add(g);
     };
 
-    for(let i=0; i<3000; i++) {
-        const x = (Math.random()-0.5)*1400, z = (Math.random()-0.5)*1400; 
+    for(let i=0; i<3500; i++) {
+        const x = (Math.random()-0.5)*1800, z = (Math.random()-0.5)*1800; 
         if(Math.sqrt(x*x+z*z) < 20) continue;
         createFoliageLOD(x, z, ['tree', 'appleTree', 'bush', 'rock'][Math.floor(Math.random()*4)]);
     }
 
     for(let i=0; i<150; i++) {
-      const x = (Math.random()-0.5)*800, z = (Math.random()-0.5)*800;
-      if(Math.sqrt(x*x+z*z) < 15) continue;
-      createCritter(x, z, ['rabbit', 'partridge', 'critter'][Math.floor(Math.random()*3)] as any);
+      createCritter((Math.random()-0.5)*1000, (Math.random()-0.5)*1000, 'rabbit');
     }
 
     const controls = new PointerLockControls(camera, renderer.domElement); controlsRef.current = controls;
@@ -292,12 +293,12 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     const onKD = (e: KeyboardEvent) => {
         const k = e.code.toLowerCase();
         if(k === 'keyw') keys.w = true; if(k === 'keya') keys.a = true; if(k === 'keys') keys.s = true; if(k === 'keyd') keys.d = true;
-        if(k === 'shiftleft') keys.shift = true; if(k === 'space') keys.space = true; if(k === 'keye') triggerAction();
+        if(k === 'shiftleft') keys.shift = true; if(k === 'keye') triggerAction();
     };
     const onKU = (e: KeyboardEvent) => {
         const k = e.code.toLowerCase();
         if(k === 'keyw') keys.w = false; if(k === 'keya') keys.a = false; if(k === 'keys') keys.s = false; if(k === 'keyd') keys.d = false;
-        if(k === 'shiftleft') keys.shift = false; if(k === 'space') keys.space = false;
+        if(k === 'shiftleft') keys.shift = false;
     };
     window.addEventListener('keydown', onKD); window.addEventListener('keyup', onKU);
     renderer.domElement.addEventListener('mousedown', (e) => { 
@@ -310,88 +311,105 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
         requestAnimationFrame(animate);
         const now = Date.now();
         const delta = 0.016; 
-        const { time, isTorchActive } = propsRef.current;
+        const { time, isTorchActive, isMobile, mobileInput } = propsRef.current;
         
-        // Sun cycle
+        // Better Day/Night Cycle
         const phi = (time / 2400) * Math.PI * 2 - Math.PI / 2;
-        tempVec.setFromSphericalCoords(1, Math.PI / 2 - phi, 0);
-        if (sunLightRef.current) {
-            sunLightRef.current.position.copy(tempVec).multiplyScalar(100);
-            sunLightRef.current.intensity = Math.max(0.1, Math.sin(phi) * 2.0); 
+        const sunIntensity = Math.max(0, Math.sin(phi));
+        const nightIntensity = 1.0 - sunIntensity;
+
+        if (skyRef.current) {
+          const uniforms = skyRef.current.material.uniforms;
+          uniforms['turbidity'].value = 10;
+          uniforms['rayleigh'].value = 3;
+          uniforms['mieCoefficient'].value = 0.005;
+          uniforms['mieDirectionalG'].value = 0.7;
+          
+          tempVec.setFromSphericalCoords(1, Math.PI / 2 - phi, 0);
+          uniforms['sunPosition'].value.copy(tempVec);
         }
 
-        // Torch Flicker and Position Update
+        if (sunLightRef.current) {
+          sunLightRef.current.position.copy(tempVec).multiplyScalar(500);
+          sunLightRef.current.intensity = sunIntensity * 2.0;
+          sunLightRef.current.color.setHSL(0.1, 0.4, 0.5 + sunIntensity * 0.5);
+        }
+
+        if (ambientLightRef.current) {
+          ambientLightRef.current.intensity = 0.1 + sunIntensity * 0.5;
+          ambientLightRef.current.color.setHSL(0.6, 0.2, 0.4 + sunIntensity * 0.6);
+        }
+
+        if (scene.fog instanceof THREE.FogExp2) {
+          const fogCol = new THREE.Color().setHSL(0.6, 0.2, 0.05 + sunIntensity * 0.15);
+          scene.fog.color.copy(fogCol);
+          renderer.setClearColor(fogCol);
+        }
+
+        // Torch and Animations
         if (torchLightRef.current) {
           if (isTorchActive) {
-            torchLightRef.current.visible = true;
-            torchLightRef.current.position.copy(camera.position);
-            // Simulate realistic flame flicker
-            const flicker = Math.sin(now * 0.01) * 2 + Math.cos(now * 0.007) * 3 + 20;
-            torchLightRef.current.intensity = flicker;
-          } else {
-            torchLightRef.current.visible = false;
+            torchLightRef.current.position.copy(camera.position).add(tempCamDir.clone().multiplyScalar(0.5));
+            torchLightRef.current.intensity = 20 + Math.sin(now * 0.01) * 5;
           }
         }
+        
+        if (isBowActive && bowInHandRef.current) {
+          bowInHandRef.current.position.y = -0.4 + Math.sin(now * 0.002) * 0.01;
+        }
+        if (isTorchActive && torchInHandRef.current) {
+          torchInHandRef.current.position.y = -0.4 + Math.sin(now * 0.0025) * 0.015;
+          const f = torchInHandRef.current.children[2] as THREE.Mesh;
+          if (f) f.scale.setScalar(1 + Math.sin(now * 0.02) * 0.2);
+        }
 
-        // Projectiles Update
-        const currentProjectiles = (window as any).projectiles || [];
-        (window as any).projectiles = currentProjectiles.filter((p: any) => {
-          if (p.isStuck) {
-            if (p.stuckTo && !p.stuckTo.visible) {
-              p.isStuck = false;
-              p.stuckTo = null;
-              p.velocity.set(0, -2, 0);
-            }
-            return true;
-          }
-          
-          p.velocity.y -= 12.0 * delta; 
+        // Projectiles
+        const proj = (window as any).projectiles || [];
+        (window as any).projectiles = proj.filter((p: any) => {
+          if (p.isStuck) return true;
+          p.velocity.y -= 15 * delta;
           p.mesh.position.add(p.velocity.clone().multiplyScalar(delta));
-          p.mesh.lookAt(p.mesh.position.clone().add(p.velocity)); 
+          p.mesh.lookAt(p.mesh.position.clone().add(p.velocity));
           p.mesh.rotateX(Math.PI/2);
           
           critterGroupRef.current.children.forEach(c => {
-            if (c.visible && c.position.distanceTo(p.mesh.position) < 1.2) {
-              c.visible = false;
-              p.isStuck = true;
-              p.stuckTo = c; 
-              playSFX(SFX_URLS.collect_meat, 0.8);
-              propsRef.current.onCollect('Raw Meat'); 
+            if (c.visible && c.position.distanceTo(p.mesh.position) < 1.0) {
+              c.visible = false; p.isStuck = true; playSFX(SFX_URLS.collect_meat, 0.8);
+              propsRef.current.onCollect('Raw Meat');
             }
           });
-
           worldObjectsRef.current.forEach(o => {
-            if (o.visible && o.position.distanceTo(p.mesh.position) < (o.userData.radius || 1.5)) {
-              p.isStuck = true;
-              p.stuckTo = o;
-              playSFX(SFX_URLS.arrow_impact, 0.4);
+            if (o.visible && o.position.distanceTo(p.mesh.position) < (o.userData.radius || 1.2)) {
+              p.isStuck = true; playSFX(SFX_URLS.arrow_impact, 0.4);
             }
           });
-
-          if (p.mesh.position.y < 0.1) { 
-            p.isStuck = true; 
-            p.stuckTo = null;
-            p.mesh.position.y = 0.1; 
-            p.mesh.rotation.x = Math.PI / 2;
-            p.mesh.rotation.z = Math.random() * Math.PI * 2; 
-            groundedArrowsRef.current.push(p.mesh); 
+          if (p.mesh.position.y < 0.1) {
+            p.isStuck = true; p.mesh.position.y = 0.1;
+            groundedArrowsRef.current.push(p.mesh);
           }
           return true;
         });
 
-        // Picking up grounded arrows
+        // Picking up arrows
         for (let i = groundedArrowsRef.current.length - 1; i >= 0; i--) {
-            const arrow = groundedArrowsRef.current[i];
-            if (camera.position.distanceTo(arrow.position) < 4.0) { 
+            if (camera.position.distanceTo(groundedArrowsRef.current[i].position) < 4.0) { 
                 propsRef.current.onCollect('Arrow');
-                scene.remove(arrow);
+                scene.remove(groundedArrowsRef.current[i]);
                 groundedArrowsRef.current.splice(i, 1);
-                (window as any).projectiles = (window as any).projectiles.filter((p: any) => p.mesh !== arrow);
             }
         }
 
+        // Mobile Rotation (Look)
+        if (isMobile && (Math.abs(mobileInput.lookX) > 0 || Math.abs(mobileInput.lookY) > 0)) {
+          euler.setFromQuaternion(camera.quaternion);
+          euler.y -= mobileInput.lookX * 0.006;
+          euler.x -= mobileInput.lookY * 0.006;
+          euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
+          camera.quaternion.setFromEuler(euler);
+        }
+
         // Movement
-        verticalVelocity -= 15 * delta; camera.position.y += verticalVelocity * delta;
+        verticalVelocity -= 18 * delta; camera.position.y += verticalVelocity * delta;
         if(camera.position.y < 1.8) { verticalVelocity = 0; camera.position.y = 1.8; }
         const moveX = isMobile ? mobileInput.moveX : (Number(keys.d) - Number(keys.a));
         const moveY = isMobile ? mobileInput.moveY : (Number(keys.w) - Number(keys.s));
@@ -405,6 +423,8 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
             camera.position.add(tempCamSide.multiplyScalar(moveX * s * delta));
         }
 
+        camera.getWorldDirection(tempCamDir);
+        propsRef.current.onPositionUpdate({ x: camera.position.x, z: camera.position.z, dirX: tempCamDir.x, dirZ: tempCamDir.z });
         renderer.render(scene, camera);
     };
     animate();

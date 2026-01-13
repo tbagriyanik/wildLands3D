@@ -47,6 +47,8 @@ export interface InteractionTarget {
 export interface MobileInput {
   moveX: number;
   moveY: number;
+  lookX: number;
+  lookY: number;
   jump: boolean;
   sprint: boolean;
   interact: boolean;

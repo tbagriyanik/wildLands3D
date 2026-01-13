@@ -79,7 +79,7 @@ const App: React.FC = () => {
   const cookingTimeoutRef = useRef<number | null>(null);
   
   const [movementStatus, setMovementStatus] = useState({ moving: false, sprinting: false });
-  const [mobileInput, setMobileInput] = useState<MobileInput>({ moveX: 0, moveY: 0, jump: false, sprint: false, interact: false, attack: false });
+  const [mobileInput, setMobileInput] = useState<MobileInput>({ moveX: 0, moveY: 0, lookX: 0, lookY: 0, jump: false, sprint: false, interact: false, attack: false });
   
   const playerInfoRef = useRef({ x: 120, z: 120, dirX: 0, dirZ: -1 });
   const [isHungerCritical, setIsHungerCritical] = useState(false);
@@ -460,7 +460,7 @@ const App: React.FC = () => {
     <div 
       className="relative w-screen h-screen overflow-hidden bg-slate-950 text-white font-sans select-none" 
       onClick={() => { 
-        if (view === 'game') sceneRef.current?.requestLock(); 
+        if (view === 'game' && !isMobile) sceneRef.current?.requestLock(); 
         startMusic(); 
       }}
     >
@@ -526,8 +526,8 @@ const App: React.FC = () => {
                 <span className="relative z-10">{t.continue}</span>
                 <div className="absolute inset-0 bg-indigo-100 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
               </button>
-              <button onClick={restartGame} className="py-3 sm:py-5 bg-slate-900/50 hover:bg-slate-800 font-bold rounded-2xl sm:rounded-[2rem] border border-white/10 transition-all uppercase tracking-widest text-white/70 hover:text-white text-sm sm:text-base">{t.newGame}</button>
-              <button onClick={() => { setView('settings'); playSFX(SFX_URLS.ui_click); }} className="py-3 sm:py-5 bg-slate-900/50 hover:bg-slate-800 font-bold rounded-2xl sm:rounded-[2rem] border border-white/10 transition-all uppercase tracking-widest text-white/70 hover:text-white text-sm sm:text-base">{t.settings}</button>
+              <button onClick={restartGame} className="py-3 sm:py-5 bg-slate-900/50 hover:bg-slate-800 font-bold rounded-2xl sm:rounded-[2rem] border border-white/10 transition-all uppercase tracking-widest text-white/70 hover:text-white text-sm sm:base">{t.newGame}</button>
+              <button onClick={() => { setView('settings'); playSFX(SFX_URLS.ui_click); }} className="py-3 sm:py-5 bg-slate-900/50 hover:bg-slate-800 font-bold rounded-2xl sm:rounded-[2rem] border border-white/10 transition-all uppercase tracking-widest text-white/70 hover:text-white text-sm sm:base">{t.settings}</button>
             </div>
           </div>
         </div>
