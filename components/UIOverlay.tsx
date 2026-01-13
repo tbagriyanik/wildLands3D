@@ -19,6 +19,14 @@ interface UIOverlayProps {
   activeToolId: string | null;
 }
 
+const ArrowIconSVG = () => (
+  <svg viewBox="0 0 100 100" className="w-full h-full">
+    <line x1="20" y1="80" x2="70" y2="30" stroke="#8b4513" strokeWidth="6" />
+    <polygon points="70,30 85,15 75,45" fill="#333" />
+    <rect x="15" y="75" width="15" height="15" fill="#fff" transform="rotate(-45 22 82)" opacity="0.8" />
+  </svg>
+);
+
 const Compass: React.FC<{ rotation: number }> = ({ rotation }) => {
   const degree = (rotation * 180) / Math.PI;
   const markers = [
@@ -67,7 +75,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   useEffect(() => {
     if (interaction.type === 'campfire' && isVisible) {
       const interval = setInterval(() => {
-        setCookingProgress(p => (p + 5) % 105);
+        setCookingProgress(p => (p + 3.33) % 103.33); // Match the 1.5s cooking time
       }, 50);
       return () => {
         clearInterval(interval);
@@ -108,7 +116,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
     </div>
   );
 
-  const CraftButton = ({ label, onClick, disabled, icon, hotkey }: { label: string, onClick: (e: any) => void, disabled: boolean, icon: string, hotkey: string }) => (
+  const CraftButton = ({ label, onClick, disabled, icon, hotkey }: { label: string, onClick: (e: any) => void, disabled: boolean, icon: React.ReactNode, hotkey: string }) => (
     <button 
       onClick={onClick}
       disabled={disabled}
@@ -119,7 +127,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
       }`}
     >
       <div className="flex items-center gap-3">
-        <span className="text-xl drop-shadow-md">{icon}</span>
+        <span className="w-6 h-6 flex items-center justify-center drop-shadow-md">{icon}</span>
         <div className="flex flex-col items-start text-left">
           <span className="text-xs font-black uppercase tracking-tight leading-none">{label}</span>
           {!isMobile && <span className="text-[10px] opacity-40 font-bold tracking-widest mt-0.5">{hotkey}</span>}
@@ -135,22 +143,11 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
       case 'bush': return '🫐';
       case 'water': return '💧'; 
       case 'campfire': return '🍳'; 
-      case 'critter': return '🏹'; 
-      case 'arrow': return '⬇️';
+      case 'rabbit': return '🐇';
+      case 'partridge': return '🐦';
+      case 'critter': return '🐿️'; 
+      case 'arrow': return <div className="w-8 h-8"><ArrowIconSVG /></div>;
       default: return null;
-    }
-  })();
-
-  const interactionDetail = (() => {
-    switch (interaction.type) {
-      case 'water': return t.waterDetail;
-      case 'appleTree': return t.appleTreeDetail;
-      case 'bush': return t.bushDetail;
-      case 'tree': return t.treeDetail;
-      case 'rock': return t.rockDetail;
-      case 'campfire': return t.campfireDetail;
-      case 'arrow': return t.arrowDetail;
-      default: return "";
     }
   })();
 
@@ -160,14 +157,10 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
     <div className={`absolute inset-0 pointer-events-none flex flex-col justify-between p-4 select-none transition-opacity duration-700 z-20 ${isVisible ? 'opacity-100' : 'opacity-0'} ${isCritical ? 'animate-dizzy' : ''}`}>
       
       {isHungerCritical && (
-        <div className="absolute inset-0 z-50 pointer-events-none shadow-[inset_0_0_150px_rgba(153,27,27,0.8)] animate-pulse border-[4px] border-red-600/10">
-          <div className="absolute inset-0 bg-red-950/10 backdrop-blur-[1px]"></div>
-        </div>
+        <div className="absolute inset-0 z-50 pointer-events-none shadow-[inset_0_0_150px_rgba(153,27,27,0.8)] animate-pulse border-[4px] border-red-600/10" />
       )}
       {isThirstCritical && (
-        <div className="absolute inset-0 z-50 pointer-events-none shadow-[inset_0_0_150px_rgba(30,58,138,0.8)] animate-pulse border-[4px] border-blue-600/10">
-          <div className="absolute inset-0 bg-blue-950/10 backdrop-blur-[1px]"></div>
-        </div>
+        <div className="absolute inset-0 z-50 pointer-events-none shadow-[inset_0_0_150px_rgba(30,58,138,0.8)] animate-pulse border-[4px] border-blue-600/10" />
       )}
 
       <Compass rotation={playerRotation} />
@@ -177,7 +170,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
             <div className={`w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)] transition-opacity duration-200 ${interaction.type !== 'none' ? 'opacity-0' : 'opacity-100'}`} />
             
             <div className={`absolute transition-all duration-500 ease-out flex flex-col items-center ${interaction.type !== 'none' ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`}>
-               <div className="text-3xl mb-1 drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] animate-bounce-gentle">
+               <div className="text-3xl mb-1 drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] animate-bounce-gentle flex items-center justify-center w-12 h-12">
                  {interactionIcon}
                </div>
                
@@ -192,7 +185,6 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                         strokeWidth="3" 
                         strokeDasharray="113" 
                         strokeDashoffset={113 - (113 * Math.min(100, cookingProgress)) / 100}
-                        className="transition-all duration-100"
                       />
                     </svg>
                   )}
@@ -202,14 +194,6 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                   <div className="text-xs font-black text-white uppercase tracking-[0.2em] bg-indigo-600/95 px-4 py-2 rounded-lg shadow-[0_8px_25px_rgba(0,0,0,0.5)] border border-white/20 whitespace-nowrap">
                     {t[interaction.type as keyof typeof t] || interaction.type}
                   </div>
-                  
-                  {interactionDetail && (
-                    <div className="max-w-[200px] text-center bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-md border border-white/5 animate-in fade-in slide-in-from-bottom-1 duration-300">
-                      <p className="text-[10px] font-bold text-white/80 leading-tight tracking-wide uppercase">
-                        {interactionDetail}
-                      </p>
-                    </div>
-                  )}
                </div>
             </div>
           </div>
@@ -240,7 +224,6 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                    {formatTime(time)}
                 </div>
              </div>
-             {/* Dynamic Day/Night Cycle Progress Bar */}
              <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-gradient-to-r from-indigo-500 via-yellow-400 to-indigo-900 transition-all duration-1000"
@@ -252,21 +235,13 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
           <StatBar label={t.hunger} value={stats.hunger} color={COLORS.hunger} pulse={isHungerCritical} />
           <StatBar label={t.thirst} value={stats.thirst} color={COLORS.thirst} pulse={isThirstCritical} />
           <StatBar label={t.energy} value={stats.energy} color={COLORS.energy} flicker={isCritical} />
-          <StatBar 
-            label={t.temp} 
-            value={stats.temperature} 
-            color={COLORS.temperature} 
-            unit="°" 
-            pulse={stats.temperature < 15} 
-            glow={isWarmingUp}
-            icon={isWarmingUp ? <span className="text-orange-400 animate-pulse text-[10px]">🔥</span> : null}
-          />
+          <StatBar label={t.temp} value={stats.temperature} color={COLORS.temperature} unit="°" pulse={stats.temperature < 15} glow={isWarmingUp} />
         </div>
 
         <div className="bg-slate-900/80 backdrop-blur-3xl p-3 rounded-2xl border border-white/10 w-44 sm:w-52 shadow-2xl pointer-events-auto">
            <h3 className="text-xs font-black uppercase tracking-[0.15em] text-orange-400 mb-3 px-1">{t.craft}</h3>
            <CraftButton label={t.campfire} onClick={() => onCraft('campfire')} disabled={!canCraftCampfire} icon="🔥" hotkey="[C]" />
-           <CraftButton label={t.Arrow} onClick={() => onCraft('arrows')} disabled={!canCraftArrow} icon="➡️" hotkey="[X]" />
+           <CraftButton label={t.Arrow} onClick={() => onCraft('arrows')} disabled={!canCraftArrow} icon={<ArrowIconSVG />} hotkey="[X]" />
            <CraftButton label={t.Bow} onClick={() => onCraft('bow')} disabled={!canCraftBow} icon="🏹" hotkey="[V]" />
            <CraftButton label={t.Torch} onClick={() => onCraft('torch')} disabled={!canCraftTorch} icon="🔦" hotkey="[T]" />
         </div>
@@ -286,23 +261,18 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
               className={`relative group min-w-[52px] h-[52px] sm:min-w-[64px] sm:h-[64px] bg-white/5 hover:bg-white/10 rounded-xl border-2 transition-all flex flex-col items-center justify-center active:scale-90 ${activeToolId === item.id ? 'border-indigo-500 bg-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.5)] scale-110 z-10' : 'border-white/5'}`}
             >
               {!isMobile && <span className="absolute top-1 left-1.5 text-[10px] font-black text-white/30">{index + 1}</span>}
-              <span className="text-2xl sm:text-3xl drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)]">
+              <span className="text-2xl sm:text-3xl drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)] w-10 h-10 flex items-center justify-center">
                 {item.name === 'Wood' && '🪵'} {item.name === 'Berries' && '🍒'}
                 {item.name === 'Apple' && '🍎'} {item.name === 'Stone' && '🪨'}
                 {item.name === 'Flint Stone' && '🔥'} {item.name === 'Roasted Apple' && '🍢'}
                 {item.name === 'Cooked Berries' && '🥣'} {item.name === 'Raw Meat' && '🥩'}
-                {item.name === 'Cooked Meat' && '🍖'} {item.name === 'Arrow' && '➡️'}
+                {item.name === 'Cooked Meat' && '🍖'} 
+                {item.name === 'Arrow' && <ArrowIconSVG />}
                 {item.name === 'Bow' && '🏹'} {item.name === 'Torch' && '🔦'}
               </span>
               <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-[10px] font-black w-6 h-6 flex items-center justify-center rounded-lg shadow-xl ring-2 ring-black/50">
                 {item.count}
               </span>
-              
-              {!isMobile && (
-                <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-[10px] text-white font-black px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none uppercase tracking-widest border border-white/10">
-                  {item.name}
-                </div>
-              )}
             </button>
           ))}
         </div>

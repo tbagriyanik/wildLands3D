@@ -45,6 +45,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
   const controlsRef = useRef<PointerLockControls | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const campfireGroupRef = useRef<THREE.Group>(new THREE.Group());
+  const critterGroupRef = useRef<THREE.Group>(new THREE.Group());
   const sunLightRef = useRef<THREE.DirectionalLight | null>(null);
   const ambientLightRef = useRef<THREE.AmbientLight | null>(null);
   const skyRef = useRef<Sky | null>(null);
@@ -86,23 +87,23 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
       group.userData = { type: 'campfire', id: cf.id, isObstacle: true, radius: 0.8 };
       
       const logGeo = new THREE.CylinderGeometry(0.15, 0.15, 1.2, 6); 
-      const logMat = new THREE.MeshStandardMaterial({ color: 0x3d2b1f, roughness: 0.8 });
+      const logMat = new THREE.MeshStandardMaterial({ color: 0x5a3e2b, roughness: 0.8 });
       for(let i=0; i<4; i++) {
         const log = new THREE.Mesh(logGeo, logMat);
         log.rotation.x = Math.PI/2; log.rotation.z = (i * Math.PI) / 2;
         log.position.y = 0.1; log.castShadow = true; group.add(log);
       }
 
-      const fireInner = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.4, 8), new THREE.MeshBasicMaterial({ color: 0xffff00 }));
+      const fireInner = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.4, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
       fireInner.position.y = 0.7; group.add(fireInner);
       
-      const fireMid = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.1, 8), new THREE.MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 0.9 }));
+      const fireMid = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.1, 8), new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.9 }));
       fireMid.position.y = 0.55; group.add(fireMid);
 
-      const fireOuter = new THREE.Mesh(new THREE.ConeGeometry(0.65, 0.8, 8), new THREE.MeshBasicMaterial({ color: 0xff3300, transparent: true, opacity: 0.7 }));
+      const fireOuter = new THREE.Mesh(new THREE.ConeGeometry(0.65, 0.8, 8), new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0.7 }));
       fireOuter.position.y = 0.4; group.add(fireOuter);
       
-      const light = new THREE.PointLight(0xffaa00, 15, 50); 
+      const light = new THREE.PointLight(0xff7700, 25, 60); 
       light.position.y = 1.3; 
       light.castShadow = true; 
       group.add(light);
@@ -117,9 +118,9 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     const group = new THREE.Group();
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.8, 6), new THREE.MeshStandardMaterial({ color: 0x8b4513 }));
     group.add(shaft);
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.12, 6), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.12, 6), new THREE.MeshStandardMaterial({ color: 0x555555 }));
     tip.position.y = 0.46; group.add(tip);
-    const fletchingMat = new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+    const fletchingMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, side: THREE.DoubleSide });
     for(let i=0; i<3; i++) {
       const f = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.18), fletchingMat);
       f.position.y = -0.3; f.rotation.y = (i * Math.PI * 2) / 3;
@@ -155,6 +156,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     const interactables = worldObjectsRef.current.filter(o => o.visible && o.position.distanceTo(cameraRef.current!.position) < 12);
     if (waterRef.current && waterRef.current.position.distanceTo(cameraRef.current.position) < 15) interactables.push(waterRef.current);
     campfireGroupRef.current.children.forEach(c => { if (c.position.distanceTo(cameraRef.current!.position) < 10) interactables.push(c); });
+    critterGroupRef.current.children.forEach(c => { if (c.visible && c.position.distanceTo(cameraRef.current!.position) < 10) interactables.push(c); });
     
     const hits = r.intersectObjects(interactables, true);
     if(hits.length > 0 && hits[0].distance < 8) {
@@ -164,6 +166,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
         else if(t === 'campfire') propsRef.current.onCook();
         else if (t === 'tree' || t === 'appleTree') { propsRef.current.onCollect(t === 'appleTree' ? 'Apple' : 'Wood'); o.visible = false; o.userData.isObstacle = false; }
         else if (t === 'rock' || t === 'bush') { propsRef.current.onCollect(t === 'rock' ? 'Stone' : 'Berries'); o.visible = false; o.userData.isObstacle = false; }
+        else if (t === 'rabbit' || t === 'partridge' || t === 'critter') { propsRef.current.onCollect('Raw Meat'); o.visible = false; }
     }
   };
 
@@ -173,18 +176,26 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
   useEffect(() => {
     if (!mountRef.current) return;
     const scene = new THREE.Scene(); sceneRef.current = scene;
+    scene.add(critterGroupRef.current);
     scene.fog = new THREE.FogExp2(0x1a1a1a, 0.002);
     const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1500);
     camera.position.set(120, 1.8, 120); cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-    renderer.setSize(window.innerWidth, window.innerHeight); renderer.setPixelRatio(1); 
-    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.BasicShadowMap;
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer shadows
+    
+    // VIVID COLOR SETTINGS
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    
     mountRef.current.appendChild(renderer.domElement);
 
     const sky = new Sky(); sky.scale.setScalar(450000); scene.add(sky); skyRef.current = sky;
     
-    // Create Stars
     const starGeometry = new THREE.BufferGeometry();
     const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.7, transparent: true, opacity: 0 });
     const starVertices = [];
@@ -199,15 +210,18 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     scene.add(stars);
     starsRef.current = stars;
 
-    const sunLight = new THREE.DirectionalLight(0xfffaf0, 1.2); sunLight.castShadow = true;
-    sunLight.shadow.mapSize.set(512, 512); scene.add(sunLight); sunLightRef.current = sunLight;
+    const sunLight = new THREE.DirectionalLight(0xfffaf0, 1.5); sunLight.castShadow = true;
+    sunLight.shadow.mapSize.set(1024, 1024);
+    sunLight.shadow.bias = -0.0005;
+    scene.add(sunLight); sunLightRef.current = sunLight;
 
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+    // LIGHTER SHADOWS - High Ambient Light
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
     ambientLightRef.current = ambientLight;
 
     const bowGroup = new THREE.Group();
-    const bowCurve = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.012, 4, 8, Math.PI), new THREE.MeshStandardMaterial({ color: 0x3d2b1f }));
+    const bowCurve = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.012, 4, 8, Math.PI), new THREE.MeshStandardMaterial({ color: 0x4d3b2f }));
     bowCurve.rotation.y = Math.PI/2; bowCurve.rotation.x = Math.PI/2; bowGroup.add(bowCurve);
     bowGroup.position.set(0.4, -0.3, -0.6); bowGroup.scale.setScalar(1.5); camera.add(bowGroup);
     bowModelRef.current = bowGroup; bowGroup.visible = false;
@@ -218,30 +232,36 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     camera.add(arrowGrp); arrowModelRef.current = arrowGrp; arrowGrp.visible = false;
 
     const torchGroup = new THREE.Group();
-    const torchHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.8, 4), new THREE.MeshStandardMaterial({ color: 0x4a3728 }));
-    torchHandle.rotation.x = -Math.PI/4; torchGroup.add(torchHandle);
+    const torchHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.9, 6), new THREE.MeshStandardMaterial({ color: 0x5a4738 }));
+    torchHandle.rotation.x = -Math.PI/6; 
+    torchGroup.add(torchHandle);
     
-    torchLightRef.current = new THREE.PointLight(0xffbb33, 120, 100);
-    torchLightRef.current.position.set(0, 0.4, -0.4); 
+    const torchFire = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.3, 8), new THREE.MeshBasicMaterial({ color: 0xffcc00 }));
+    torchFire.position.set(0, 0.45, -0.25);
+    torchGroup.add(torchFire);
+    
+    torchLightRef.current = new THREE.PointLight(0xffaa22, 140, 120);
+    torchLightRef.current.position.copy(torchFire.position); 
     torchLightRef.current.castShadow = true;
     torchGroup.add(torchLightRef.current);
     
-    torchGroup.position.set(0.5, -0.4, -0.7); camera.add(torchGroup);
+    torchGroup.position.set(0.6, -0.3, -0.8); 
+    camera.add(torchGroup);
     torchModelRef.current = torchGroup; torchGroup.visible = false;
 
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(1500, 1500), new THREE.MeshStandardMaterial({ color: 0x1a331a, roughness: 1.0 }));
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(1500, 1500), new THREE.MeshStandardMaterial({ color: 0x224422, roughness: 1.0 }));
     ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 
     const water = new Water(new THREE.CircleGeometry(50, 8), {
-        textureWidth: 128, textureHeight: 128,
+        textureWidth: 256, textureHeight: 256,
         waterNormals: new THREE.TextureLoader().load('https://threejs.org/examples/textures/waternormals.jpg', (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; }),
-        waterColor: 0x002e40, distortionScale: 1.0, fog: true
+        waterColor: 0x004466, distortionScale: 1.5, fog: true
     });
     water.rotation.x = -Math.PI/2; water.position.set(0, 0.21, 0); water.userData = { type: 'water' };
     scene.add(water); waterRef.current = water;
 
-    const barkTex = new THREE.MeshStandardMaterial({ color: 0x3d2b1f });
-    const stoneTex = new THREE.MeshStandardMaterial({ color: 0x666666 });
+    const barkTex = new THREE.MeshStandardMaterial({ color: 0x5a3e2b });
+    const stoneTex = new THREE.MeshStandardMaterial({ color: 0x888888 });
     const obstacles: THREE.Object3D[] = [];
 
     const createFoliageLOD = (x: number, z: number, type: string) => {
@@ -251,29 +271,59 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
             const h = 5 + Math.random() * 3;
             const g0 = new THREE.Group();
             const t0 = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, h, 4), barkTex); t0.position.y = h/2; t0.castShadow = true; g0.add(t0);
-            const l0 = new THREE.Mesh(new THREE.ConeGeometry(3, 6, 4), new THREE.MeshStandardMaterial({ color: type === 'appleTree' ? 0x2e5c26 : 0x163821 })); l0.position.y = h+2; l0.castShadow = true; g0.add(l0);
+            const foliageColor = type === 'appleTree' ? 0x3d7c36 : 0x1e4a2d;
+            const l0 = new THREE.Mesh(new THREE.ConeGeometry(3, 6, 4), new THREE.MeshStandardMaterial({ color: foliageColor })); l0.position.y = h+2; l0.castShadow = true; g0.add(l0);
             lod.addLevel(g0, 0);
-            lod.addLevel(new THREE.Group(), 120);
+            lod.addLevel(new THREE.Group(), 150);
             lod.userData = { type, isObstacle: true, radius: 0.9 };
         } else if (type === 'rock') {
             const s = 1 + Math.random();
             const r0 = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), stoneTex); r0.position.y = s*0.4; r0.castShadow = true;
             lod.addLevel(r0, 0);
-            lod.addLevel(new THREE.Group(), 100);
+            lod.addLevel(new THREE.Group(), 120);
             lod.userData = { type, isObstacle: true, radius: s*0.8 };
         } else if (type === 'bush') {
-          const b = new THREE.Mesh(new THREE.IcosahedronGeometry(1.2, 0), new THREE.MeshStandardMaterial({ color: 0x2a601a }));
-          b.position.y = 0.6; lod.addLevel(b, 0); lod.addLevel(new THREE.Group(), 60);
+          const b = new THREE.Mesh(new THREE.IcosahedronGeometry(1.2, 0), new THREE.MeshStandardMaterial({ color: 0x3a7c2a }));
+          b.position.y = 0.6; lod.addLevel(b, 0); lod.addLevel(new THREE.Group(), 80);
           lod.userData = { type };
         }
         lod.updateMatrix(); lod.matrixAutoUpdate = false;
         scene.add(lod); worldObjectsRef.current.push(lod); if(lod.userData.isObstacle) obstacles.push(lod);
     };
 
+    const createCritter = (x: number, z: number, type: 'rabbit' | 'partridge' | 'critter') => {
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+      
+      let body;
+      if (type === 'rabbit') {
+        body = new THREE.Mesh(new THREE.CapsuleGeometry(0.15, 0.3, 2, 4), new THREE.MeshStandardMaterial({ color: 0xcccccc }));
+        const earL = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.05), body.material); earL.position.set(0.08, 0.3, 0); group.add(earL);
+        const earR = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.05), body.material); earR.position.set(-0.08, 0.3, 0); group.add(earR);
+      } else if (type === 'partridge') {
+        body = new THREE.Mesh(new THREE.SphereGeometry(0.12, 4, 4), new THREE.MeshStandardMaterial({ color: 0x9c5c2d }));
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.06, 4, 4), body.material); head.position.set(0, 0.15, 0.1); group.add(head);
+      } else {
+        body = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshStandardMaterial({ color: 0x9c5c2d }));
+      }
+      
+      body.position.y = 0.15;
+      body.castShadow = true;
+      group.add(body);
+      group.userData = { type, targetX: x, targetZ: z, speed: 0.02 + Math.random() * 0.04 };
+      critterGroupRef.current.add(group);
+    };
+
     for(let i=0; i<4500; i++) {
         const x = (Math.random()-0.5)*1400, z = (Math.random()-0.5)*1400; 
         if(Math.sqrt(x*x+z*z) < 20) continue;
         createFoliageLOD(x, z, ['tree', 'appleTree', 'bush', 'rock'][Math.floor(Math.random()*4)]);
+    }
+
+    for(let i=0; i<150; i++) {
+      const x = (Math.random()-0.5)*800, z = (Math.random()-0.5)*800;
+      if(Math.sqrt(x*x+z*z) < 15) continue;
+      createCritter(x, z, ['rabbit', 'partridge', 'critter'][Math.floor(Math.random()*3)] as any);
     }
 
     const controls = new PointerLockControls(camera, renderer.domElement); controlsRef.current = controls;
@@ -310,13 +360,12 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
         const sunAltitude = Math.sin(phi);
         const isDay = sunAltitude > 0;
         const lFactor = Math.max(0, Math.min(1, sunAltitude + 0.3));
-        const eveningFactor = Math.max(0, Math.min(1, 1.0 - Math.abs(sunAltitude)));
 
         if (skyRef.current) {
             const uniforms = skyRef.current.material.uniforms;
             uniforms['sunPosition'].value.copy(tempVec);
             uniforms['turbidity'].value = 10 * (1 - lFactor) + 2;
-            uniforms['rayleigh'].value = 3 * lFactor + 0.5;
+            uniforms['rayleigh'].value = 4 * lFactor + 0.5; // Slightly more rayleigh for vivid sky
             uniforms['mieCoefficient'].value = 0.005;
             uniforms['mieDirectionalG'].value = 0.8;
         }
@@ -328,53 +377,63 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
         
         if (sunLightRef.current) {
             sunLightRef.current.position.copy(tempVec).multiplyScalar(100);
-            sunLightRef.current.intensity = Math.max(0, sunAltitude) * 1.5;
-            
-            // Dawn/Dusk coloring
-            if (sunAltitude < 0.2 && sunAltitude > -0.2) {
-              sunLightRef.current.color.setHSL(0.05, 0.8, 0.6);
-            } else {
-              sunLightRef.current.color.setHSL(0.1, 0.2, 1.0);
-            }
-
+            sunLightRef.current.intensity = Math.max(0, sunAltitude) * 1.8;
+            if (sunAltitude < 0.2 && sunAltitude > -0.2) sunLightRef.current.color.setHSL(0.05, 0.9, 0.6); // Vivid sunset
+            else sunLightRef.current.color.setHSL(0.1, 0.3, 1.0);
             sunLightRef.current.shadow.camera.position.set(camera.position.x, 50, camera.position.z);
             sunLightRef.current.target.position.set(camera.position.x, 0, camera.position.z);
             sunLightRef.current.target.updateMatrixWorld();
         }
 
         if (ambientLightRef.current) {
-          const intensity = Math.max(0.05, lFactor * 0.6);
-          ambientLightRef.current.intensity = intensity;
+          // Keep ambient light high to soften shadows
+          const baseIntensity = isDay ? 0.75 : 0.25;
+          ambientLightRef.current.intensity = baseIntensity + (lFactor * 0.3);
           
-          if (!isDay) {
-            ambientLightRef.current.color.setHex(0x202040); // Deep Night Blue
-          } else if (sunAltitude < 0.2) {
-            ambientLightRef.current.color.setHex(0xffaa88); // Dawn/Dusk Orange
-          } else {
-            ambientLightRef.current.color.setHex(0xffffff);
-          }
+          if (!isDay) ambientLightRef.current.color.setHex(0x252545); // Indigo night
+          else if (sunAltitude < 0.2) ambientLightRef.current.color.setHex(0xffbb99); // Warm dawn
+          else ambientLightRef.current.color.setHex(0xffffff);
         }
 
         if (sceneRef.current && sceneRef.current.fog) {
           const fog = sceneRef.current.fog as THREE.FogExp2;
-          if (isDay) {
-            fog.color.setHSL(0.6, 0.2, Math.max(0.1, sunAltitude * 0.5));
-          } else {
-            fog.color.setHex(0x050510);
-          }
+          if (isDay) fog.color.setHSL(0.6, 0.3, Math.max(0.15, sunAltitude * 0.6));
+          else fog.color.setHex(0x0a0a1a);
         }
 
-        // Ambient wildlife sounds logic
         if (now > nextAmbientTimeRef.current) {
             const isDayLight = time > 500 && time < 1900;
             if (isDayLight && propsRef.current.sfxEnabled) {
                 const sfx = Math.random() > 0.5 ? SFX_URLS.bird_ambient : SFX_URLS.squirrel_ambient;
-                playSFX(sfx, 0.15, true);
+                playSFX(sfx, 0.1);
             }
             nextAmbientTimeRef.current = now + 10000 + Math.random() * 20000;
         }
 
-        if (torchLightRef.current && isTorchActive) torchLightRef.current.intensity = 110 + Math.random() * 20;
+        if (torchModelRef.current && isTorchActive) {
+          const flicker = 0.9 + Math.random() * 0.2;
+          torchLightRef.current!.intensity = 130 * flicker;
+          torchModelRef.current.position.y = -0.3 + Math.sin(now * 0.004) * 0.025; 
+          torchModelRef.current.rotation.z = Math.sin(now * 0.002) * 0.04;
+        }
+
+        critterGroupRef.current.children.forEach(c => {
+          if (!c.visible) return;
+          const dist = new THREE.Vector2(c.position.x, c.position.z).distanceTo(new THREE.Vector2(c.userData.targetX, c.userData.targetZ));
+          if (dist < 0.5 || Math.random() < 0.005) {
+            c.userData.targetX = c.position.x + (Math.random() - 0.5) * 15;
+            c.userData.targetZ = c.position.z + (Math.random() - 0.5) * 15;
+            c.lookAt(c.userData.targetX, 0.1, c.userData.targetZ);
+          }
+          const dx = c.userData.targetX - c.position.x;
+          const dz = c.userData.targetZ - c.position.z;
+          const len = Math.sqrt(dx*dx + dz*dz);
+          if (len > 0.01) {
+            c.position.x += (dx/len) * c.userData.speed;
+            c.position.z += (dz/len) * c.userData.speed;
+            if (c.userData.type === 'rabbit') c.position.y = 0.15 + Math.abs(Math.sin(now * 0.012)) * 0.25; 
+          }
+        });
 
         campfireGroupRef.current.children.forEach(group => {
             const fireMeshes = group.userData.fireMeshes;
@@ -382,10 +441,10 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
             if (fireMeshes && light) {
                 const flicker = 0.85 + Math.random() * 0.3;
                 fireMeshes.forEach((mesh: THREE.Mesh, i: number) => { 
-                  mesh.scale.y = flicker * (1.1 + Math.sin(now * 0.012 + i) * 0.2); 
-                  mesh.scale.x = mesh.scale.z = 1.0 + Math.cos(now * 0.01) * 0.1;
+                  mesh.scale.y = flicker * (1.1 + Math.sin(now * 0.015 + i) * 0.25); 
+                  mesh.scale.x = mesh.scale.z = 1.0 + Math.cos(now * 0.012) * 0.1;
                 });
-                light.intensity = 15 + Math.random() * 8;
+                light.intensity = 20 + Math.random() * 10;
             }
         });
 
@@ -395,6 +454,15 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
           p.velocity.y -= 9.8 * delta;
           p.mesh.position.add(p.velocity.clone().multiplyScalar(delta));
           p.mesh.lookAt(p.mesh.position.clone().add(p.velocity)); p.mesh.rotateX(Math.PI/2);
+          
+          critterGroupRef.current.children.forEach(c => {
+            if (c.visible && c.position.distanceTo(p.mesh.position) < 1.5) {
+              c.visible = false;
+              p.isStuck = true;
+              playSFX(SFX_URLS.collect_meat, 0.8);
+            }
+          });
+
           if (p.mesh.position.y < 0.2) { 
             p.isStuck = true; 
             p.mesh.position.y = 0.2; 
@@ -431,7 +499,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
             camera.position.add(forward.multiplyScalar(moveY * s * delta));
             camera.position.add(tempCamSide.multiplyScalar(moveX * s * delta));
             if(propsRef.current.sfxEnabled && camera.position.y <= 1.81 && now - lastFootstep > (sprinting ? 160 : 320)) {
-                playSFX(SFX_URLS.footstep_grass, 0.1); lastFootstep = now;
+                playSFX(SFX_URLS.footstep_grass, 0.08); lastFootstep = now;
             }
         }
         
@@ -450,9 +518,18 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
               const interactables = worldObjectsRef.current.filter(o => o.visible && o.position.distanceTo(camera.position) < 12);
               if (waterRef.current) interactables.push(waterRef.current);
               campfireGroupRef.current.children.forEach(c => interactables.push(c));
+              critterGroupRef.current.children.forEach(c => { if(c.visible) interactables.push(c); });
               const hits = r.intersectObjects(interactables, true);
-              const target = hits.find(h => h.object.userData && h.object.userData.type && h.object.userData.type !== 'none');
-              propsRef.current.onInteract({ type: target ? target.object.userData.type : 'none' });
+              const target = hits.find(h => {
+                let p = h.object; while(p.parent && !p.userData.type) p = p.parent;
+                return p.userData.type;
+              });
+              let finalType = 'none';
+              if (target) {
+                let p = target.object; while(p.parent && !p.userData.type) p = p.parent;
+                finalType = p.userData.type;
+              }
+              propsRef.current.onInteract({ type: finalType as any });
             }
         }
         renderer.render(scene, camera);

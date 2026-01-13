@@ -13,7 +13,7 @@ export const SURVIVAL_DECAY_RATES = {
   energy_base: 0.02,     // Constant drain
   energy_walk: 0.15,     // Drain while walking
   energy_sprint: 0.45,   // Drain while sprinting
-  energy_recovery: 0.4,  // Recovery when standing still (~4 mins to full)
+  energy_recovery: 0.4,  // Recovery when standing still
   temp_night_drop: 0.25, // Temperature drop per sec at night
   temp_day_drop: 0.08,   // Temperature drop per sec at day
   temp_fire_gain: 0.8,   // Temperature gain near fire
@@ -51,7 +51,9 @@ export const TRANSLATIONS = {
     rock: "COLLECT STONE",
     water: "DRINK WATER",
     campfire: "COOK FOOD / WARM UP",
-    critter: "HUNT SQUIRREL",
+    critter: "HUNT ANIMAL",
+    rabbit: "HUNT RABBIT",
+    partridge: "HUNT PARTRIDGE",
     arrow: "PICK UP ARROW",
     walk: "WALK",
     look: "LOOK",
@@ -88,7 +90,6 @@ export const TRANSLATIONS = {
     tagline: "Survive in the Wildlands",
     on: "ON",
     off: "OFF",
-    // Interaction Details
     waterDetail: "Clean mountain water. Restores 20% Thirst.",
     appleTreeDetail: "High-energy wild apples. Best for hunger.",
     bushDetail: "Wild berries. Good for quick energy bursts.",
@@ -120,7 +121,9 @@ export const TRANSLATIONS = {
     rock: "TAŞ TOPLA",
     water: "SU İÇ",
     campfire: "YEMEK PİŞİR / ISIN",
-    critter: "SİNCAP AVLA",
+    critter: "HAYVAN AVLA",
+    rabbit: "TAVŞAN AVLA",
+    partridge: "KEKLİK AVLA",
     arrow: "OKU TOPLA",
     walk: "YÜRÜ",
     look: "BAKIŞ",
@@ -157,7 +160,6 @@ export const TRANSLATIONS = {
     tagline: "Vahşi Doğada Hayatta Kal",
     on: "AÇIK",
     off: "KAPALI",
-    // Interaction Details
     waterDetail: "Temiz dağ suyu. %20 Susuzluk giderir.",
     appleTreeDetail: "Yabani elmalar. Açlık için en iyisidir.",
     bushDetail: "Yabani meyveler. Hızlı enerji için ideal.",

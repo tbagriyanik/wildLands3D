@@ -181,7 +181,11 @@ const App: React.FC = () => {
     let vol = 0.3;
     if (type === 'Wood') { sfxUrl = SFX_URLS.collect_wood; vol = 0.6; }
     else if (type === 'Stone') { sfxUrl = SFX_URLS.collect_stone; vol = 0.5; }
-    else if (type === 'Raw Meat') { sfxUrl = SFX_URLS.collect_meat; vol = 0.6; }
+    else if (type === 'Raw Meat' || type === 'rabbit' || type === 'partridge' || type === 'critter') { 
+      sfxUrl = SFX_URLS.collect_meat; 
+      vol = 0.6; 
+      type = 'Raw Meat';
+    }
     playSFX(sfxUrl, vol);
     setGameState(prev => {
       const inv = [...prev.inventory];
@@ -277,7 +281,7 @@ const App: React.FC = () => {
         return { ...prev, inventory: newInventory };
       });
       cookingTimeoutRef.current = null;
-    }, 1000);
+    }, 1500);
   }, [playSFX]);
 
   const handleShoot = useCallback(() => {
@@ -374,7 +378,8 @@ const App: React.FC = () => {
 
         if (newStats.health <= 0) setIsGameOver(true);
         
-        let newTime = prev.time + 2.67;
+        // Faster time progression: incremented from 2.67 to 8.0
+        let newTime = prev.time + 8.0; 
         let newDay = prev.day;
         if (newTime >= 2400) { newTime = 0; newDay++; }
         
