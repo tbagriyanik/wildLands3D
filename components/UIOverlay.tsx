@@ -24,7 +24,7 @@ interface UIOverlayProps {
 interface DeltaIndicator {
   id: string;
   amount: number;
-  itemName: string; // Use name as key since IDs might be recreated on sort
+  itemName: string; 
 }
 
 const ArrowIconSVG = () => (
@@ -106,19 +106,17 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
       setDeltas(prev => [...prev, ...newDeltas]);
       setPulseItems(prev => ({ ...prev, ...newPulses }));
       
-      // Clear deltas after animation
       setTimeout(() => {
         setDeltas(prev => prev.filter(d => !newDeltas.find(nd => nd.id === d.id)));
       }, 1500);
 
-      // Reset pulse effect
       setTimeout(() => {
         setPulseItems(prev => {
           const updated = { ...prev };
           Object.keys(newPulses).forEach(k => delete updated[k]);
           return updated;
         });
-      }, 500);
+      }, 600);
     }
     prevInventoryRef.current = inventory;
   }, [inventory]);
@@ -296,7 +294,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
             <button 
               key={item.id} 
               onClick={() => onUseItem(item.id)} 
-              className={`relative group min-w-[52px] h-[52px] sm:min-w-[64px] sm:h-[64px] bg-white/5 hover:bg-white/10 rounded-xl border-2 transition-all flex flex-col items-center justify-center active:scale-90 ${activeToolId === item.id ? 'border-indigo-500 bg-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.5)] scale-110 z-10' : 'border-white/5'} ${pulseItems[item.name] ? 'animate-item-pop' : ''}`}
+              className={`relative group min-w-[52px] h-[52px] sm:min-w-[64px] sm:h-[64px] bg-white/5 hover:bg-white/10 rounded-xl border-2 transition-all flex flex-col items-center justify-center active:scale-90 ${activeToolId === item.id ? 'border-indigo-500 bg-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.5)] scale-110 z-10' : 'border-white/5'} ${pulseItems[item.name] ? 'animate-item-pop border-indigo-400 shadow-[0_0_30px_rgba(99,102,241,0.8)]' : ''}`}
             >
               {!isMobile && index < 9 && <span className="absolute top-0.5 left-1 text-[10px] font-black text-indigo-400">{index + 1}</span>}
               <span className="text-2xl sm:text-3xl drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)] w-10 h-10 flex items-center justify-center">
@@ -310,14 +308,14 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
               </span>
               <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-[10px] font-black w-6 h-6 flex items-center justify-center rounded-lg shadow-xl ring-2 ring-black/50">{item.count}</span>
               
-              {/* Floating Delta Badges */}
+              {/* Floating Delta Badges - Exaggerated */}
               {deltas.filter(d => d.itemName === item.name).map(delta => (
                 <div 
                   key={delta.id} 
-                  className={`absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full font-black text-xs z-50 pointer-events-none shadow-lg animate-delta-float border-2 ${
+                  className={`absolute -top-12 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full font-black text-lg z-50 pointer-events-none shadow-[0_0_40px_rgba(0,0,0,0.8)] animate-delta-float border-4 ${
                     delta.amount > 0 
-                    ? 'bg-green-600 border-green-400 text-white' 
-                    : 'bg-red-600 border-red-400 text-white'
+                    ? 'bg-green-600 border-green-300 text-white shadow-green-500/50' 
+                    : 'bg-red-600 border-red-300 text-white shadow-red-500/50'
                   }`}
                 >
                   {delta.amount > 0 ? `+${delta.amount}` : delta.amount}
@@ -332,20 +330,23 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         @keyframes bounce-gentle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
         @keyframes dizzy { 0%, 100% { filter: blur(0px); transform: rotate(0deg); } 50% { filter: blur(1.5px); transform: rotate(0.2deg); } }
         @keyframes delta-float { 
-          0% { transform: translate(-50%, 0) scale(0.5); opacity: 0; } 
-          20% { opacity: 1; transform: translate(-50%, -15px) scale(1.2); } 
-          80% { opacity: 1; transform: translate(-50%, -35px) scale(1.0); } 
-          100% { transform: translate(-50%, -50px) scale(0.8); opacity: 0; } 
+          0% { transform: translate(-50%, 40px) scale(0); opacity: 0; filter: blur(10px); } 
+          15% { opacity: 1; transform: translate(-50%, -20px) scale(1.8); filter: blur(0px); } 
+          30% { transform: translate(-50%, -30px) scale(1.4); }
+          80% { opacity: 1; transform: translate(-50%, -100px) scale(1.2); } 
+          100% { transform: translate(-50%, -160px) scale(0.6); opacity: 0; } 
         }
         @keyframes item-pop {
-          0% { transform: scale(1); }
-          50% { transform: scale(1.2); }
-          100% { transform: scale(1); }
+          0% { transform: scale(1); rotate: 0deg; }
+          25% { transform: scale(1.6); rotate: 15deg; }
+          50% { transform: scale(1.3); rotate: -15deg; }
+          75% { transform: scale(1.4); rotate: 5deg; }
+          100% { transform: scale(1); rotate: 0deg; }
         }
         .animate-bounce-gentle { animation: bounce-gentle 2s ease-in-out infinite; }
         .animate-dizzy { animation: dizzy 8s ease-in-out infinite; }
-        .animate-delta-float { animation: delta-float 1.5s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards; }
-        .animate-item-pop { animation: item-pop 0.4s ease-out; }
+        .animate-delta-float { animation: delta-float 1.8s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards; }
+        .animate-item-pop { animation: item-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
     </div>

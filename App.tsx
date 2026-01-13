@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import GameScene, { GameSceneHandle } from './components/GameScene';
 import UIOverlay from './components/UIOverlay';
-import AIAdvisor from './components/AIAdvisor';
 import { GameState, InteractionTarget, MobileInput, InventoryItem } from './types';
 import { INITIAL_STATS, SURVIVAL_DECAY_RATES, TRANSLATIONS, SFX_URLS } from './constants';
 
@@ -201,7 +200,7 @@ const App: React.FC = () => {
   }, [playSFX]);
 
   const handleCollect = (type: string) => {
-    let sfxUrl = SFX_URLS.collect_item_generic;
+    let sfxUrl = SFX_URLS.collect_wood;
     let vol = 0.3;
     if (type === 'Wood') { sfxUrl = SFX_URLS.collect_wood; vol = 0.6; }
     else if (type === 'Stone') { sfxUrl = SFX_URLS.collect_stone; vol = 0.5; }
@@ -209,6 +208,9 @@ const App: React.FC = () => {
       sfxUrl = SFX_URLS.collect_meat; 
       vol = 0.6; 
       type = 'Raw Meat';
+    } else {
+      sfxUrl = SFX_URLS.collect_item_generic;
+      vol = 0.4;
     }
     playSFX(sfxUrl, vol);
     setGameState(prev => {
@@ -506,7 +508,6 @@ const App: React.FC = () => {
             playerRotation={playerRotation}
             activeToolId={activeToolId}
           />
-          <AIAdvisor gameState={gameState} />
         </>
       )}
 
