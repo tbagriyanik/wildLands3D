@@ -19,6 +19,8 @@ interface UIOverlayProps {
   onMobileInput: (input: (prev: MobileInput) => MobileInput) => void;
   playerRotation: number;
   activeToolId: string | null;
+  isCraftingOpen: boolean;
+  setIsCraftingOpen: (open: boolean) => void;
 }
 
 interface DeltaIndicator {
@@ -65,7 +67,7 @@ const Compass: React.FC<{ rotation: number }> = ({ rotation }) => {
 };
 
 const UIOverlay: React.FC<UIOverlayProps> = ({ 
-  gameState, interaction, onUseItem, onCraft, onCook, cookingItem, isVisible, isHungerCritical, isThirstCritical, isWarmingUp, showTodoList, isMobile, onMobileInput, playerRotation, activeToolId
+  gameState, interaction, onUseItem, onCraft, onCook, cookingItem, isVisible, isHungerCritical, isThirstCritical, isWarmingUp, showTodoList, isMobile, onMobileInput, playerRotation, activeToolId, isCraftingOpen, setIsCraftingOpen
 }) => {
   const { stats, inventory, time, settings, campfires } = gameState;
   const t = TRANSLATIONS[settings.language];
@@ -76,7 +78,6 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   const joystickRef = useRef<{ startX: number; startY: number; isActive: boolean }>({ startX: 0, startY: 0, isActive: false });
   const lookRef = useRef<{ lastX: number; lastY: number; isActive: boolean }>({ lastX: 0, lastY: 0, isActive: false });
 
-  // Mobile Joystick (Left side) - Shrinked to fit better
   const handleJoystickStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
     joystickRef.current = { startX: touch.clientX, startY: touch.clientY, isActive: true };
@@ -87,10 +88,10 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
     const touch = e.touches[0];
     const dx = touch.clientX - joystickRef.current.startX;
     const dy = touch.clientY - joystickRef.current.startY;
-    const dist = Math.min(40, Math.sqrt(dx * dx + dy * dy));
+    const dist = Math.min(30, Math.sqrt(dx * dx + dy * dy));
     const angle = Math.atan2(dy, dx);
-    const moveX = (Math.cos(angle) * dist) / 40;
-    const moveY = -(Math.sin(angle) * dist) / 40;
+    const moveX = (Math.cos(angle) * dist) / 30;
+    const moveY = -(Math.sin(angle) * dist) / 30;
     onMobileInput(prev => ({ ...prev, moveX, moveY }));
   };
 
@@ -99,7 +100,6 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
     onMobileInput(prev => ({ ...prev, moveX: 0, moveY: 0 }));
   };
 
-  // Mobile Look (Right side) - Shrinked to fit better
   const handleLookStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
     lookRef.current = { lastX: touch.clientX, lastY: touch.clientY, isActive: true };
@@ -323,40 +323,49 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
           <StatBar label={t.temp} value={stats.temperature} color={COLORS.temperature} unit="°" pulse={stats.temperature < 15} glow={isWarmingUp} />
         </div>
 
-        <div className="bg-slate-900/80 backdrop-blur-3xl p-3 rounded-2xl border border-white/10 w-44 sm:w-52 shadow-2xl pointer-events-auto">
-           <h3 className="text-xs font-black uppercase tracking-[0.15em] text-orange-400 mb-3 px-1">{t.craft}</h3>
-           {isWarmingUp && (
-             <CraftButton label={`${t.campfire} / ${t.use}`} onClick={onCook} disabled={!canCookSomething || !!cookingItem} icon="🍗" hotkey="[E]" highlight />
-           )}
-           <CraftButton label={t.campfire} onClick={() => onCraft('campfire')} disabled={!canCraftCampfire} icon="🔥" hotkey="[C]" />
-           <CraftButton label={t.Arrow} onClick={() => onCraft('arrows')} disabled={!canCraftArrow} icon={<ArrowIconSVG />} hotkey="[X]" />
-           <CraftButton label={t.Bow} onClick={() => onCraft('bow')} disabled={!canCraftBow} icon="🏹" hotkey="[V]" />
-           <CraftButton label={t.Torch} onClick={() => onCraft('torch')} disabled={!canCraftTorch} icon="🔦" hotkey="[T]" />
+        <div className={`transition-all duration-300 pointer-events-auto flex flex-col items-start ${isCraftingOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'}`}>
+          <div className="bg-slate-900/80 backdrop-blur-3xl p-3 rounded-2xl border border-white/10 w-44 sm:w-52 shadow-2xl">
+             <div className="flex justify-between items-center mb-3 px-1">
+               <h3 className="text-xs font-black uppercase tracking-[0.15em] text-orange-400">{t.craft}</h3>
+               <button onClick={() => setIsCraftingOpen(false)} className="text-white/40 hover:text-white text-xs">×</button>
+             </div>
+             {isWarmingUp && (
+               <CraftButton label={`${t.campfire} / ${t.use}`} onClick={onCook} disabled={!canCookSomething || !!cookingItem} icon="🍗" hotkey="[E]" highlight />
+             )}
+             <CraftButton label={t.campfire} onClick={() => onCraft('campfire')} disabled={!canCraftCampfire} icon="🔥" hotkey="[C]" />
+             <CraftButton label={t.Arrow} onClick={() => onCraft('arrows')} disabled={!canCraftArrow} icon={<ArrowIconSVG />} hotkey="[X]" />
+             <CraftButton label={t.Bow} onClick={() => onCraft('bow')} disabled={!canCraftBow} icon="🏹" hotkey="[V]" />
+             <CraftButton label={t.Torch} onClick={() => onCraft('torch')} disabled={!canCraftTorch} icon="🔦" hotkey="[T]" />
+          </div>
         </div>
       </div>
 
-      {/* Mobile Controls - Shrinked and better placed */}
       {isMobile && (
         <div className="absolute inset-0 pointer-events-none z-30">
-          {/* Movement Joystick (Left) */}
           <div 
-            className="absolute bottom-10 left-6 w-28 h-28 bg-white/5 backdrop-blur-md rounded-full border-2 border-white/20 flex items-center justify-center pointer-events-auto touch-none shadow-2xl"
+            className="absolute bottom-6 left-6 w-24 h-24 bg-white/5 backdrop-blur-md rounded-full border border-white/20 flex items-center justify-center pointer-events-auto touch-none shadow-2xl"
             onTouchStart={handleJoystickStart}
             onTouchMove={handleJoystickMove}
             onTouchEnd={handleJoystickEnd}
           >
-            <div className="w-10 h-10 bg-indigo-500 rounded-full border-2 border-white shadow-[0_0_15px_rgba(99,102,241,0.8)]" />
+            <div className="w-8 h-8 bg-indigo-500 rounded-full border border-white shadow-[0_0_10px_rgba(99,102,241,0.6)]" />
           </div>
 
-          {/* Look Area (Right) */}
           <div 
-            className="absolute bottom-10 right-6 w-32 h-32 bg-white/5 backdrop-blur-md rounded-2xl border-2 border-white/20 flex items-center justify-center pointer-events-auto touch-none shadow-2xl"
+            className="absolute bottom-6 right-6 w-24 h-24 bg-white/5 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center pointer-events-auto touch-none shadow-2xl"
             onTouchStart={handleLookStart}
             onTouchMove={handleLookMove}
             onTouchEnd={handleLookEnd}
           >
-            <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{t.look}</span>
+            <span className="text-[9px] font-black uppercase tracking-widest text-white/30">{t.look}</span>
           </div>
+
+          <button 
+            onClick={() => setIsCraftingOpen(!isCraftingOpen)}
+            className="absolute bottom-32 left-8 w-12 h-12 bg-orange-600 rounded-xl border border-white/20 flex items-center justify-center pointer-events-auto shadow-2xl text-lg"
+          >
+            🛠️
+          </button>
         </div>
       )}
 

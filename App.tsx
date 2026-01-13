@@ -34,6 +34,7 @@ const sortInventory = (items: InventoryItem[]): InventoryItem[] => {
 const App: React.FC = () => {
   const [view, setView] = useState<'menu' | 'game' | 'settings'>('menu');
   const [isMobile, setIsMobile] = useState(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+  const [isCraftingOpen, setIsCraftingOpen] = useState(false);
   
   const [gameState, setGameState] = useState<GameState>(() => {
     const saved = localStorage.getItem(SAVE_KEY);
@@ -326,8 +327,16 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleKeys = (e: KeyboardEvent) => {
       if (view === 'game') {
-        if (e.key === 'Escape') { setView('menu'); return; }
-        if (e.key.toLowerCase() === 'c') { handleCraft('campfire'); return; }
+        if (e.key === 'Escape') { 
+          if (isCraftingOpen) {
+            setIsCraftingOpen(false);
+          } else {
+            setView('menu'); 
+            setIsLocked(false);
+          }
+          return; 
+        }
+        if (e.key.toLowerCase() === 'c') { setIsCraftingOpen(prev => !prev); return; }
         if (e.key.toLowerCase() === 'x') { handleCraft('arrows'); return; }
         if (e.key.toLowerCase() === 'v') { handleCraft('bow'); return; }
         if (e.key.toLowerCase() === 't') { handleCraft('torch'); return; }
@@ -337,11 +346,13 @@ const App: React.FC = () => {
           const item = gameState.inventory[keyNum - 1];
           if (item) handleUseItem(item.id);
         }
+      } else if (view === 'menu') {
+        if (e.key === 'Escape') { setView('game'); return; }
       }
     };
     window.addEventListener('keydown', handleKeys);
     return () => window.removeEventListener('keydown', handleKeys);
-  }, [view, gameState.inventory, handleUseItem, handleCraft]);
+  }, [view, isCraftingOpen, gameState.inventory, handleUseItem, handleCraft]);
 
   useEffect(() => {
     if (view !== 'game' || (!isLocked && !isMobile)) return;
@@ -464,55 +475,54 @@ const App: React.FC = () => {
         startMusic(); 
       }}
     >
-      {view === 'game' && (
-        <>
-          <GameScene 
-            ref={sceneRef}
-            onInteract={setInteraction} 
-            onCollect={handleCollect} 
-            onDrink={handleDrink}
-            onMovementChange={setMovementStatus}
-            onPositionUpdate={(info) => { 
-              playerInfoRef.current = info;
-              const angle = Math.atan2(info.dirX, info.dirZ);
-              setPlayerRotation(angle);
-            }}
-            onLockChange={setIsLocked}
-            onCook={handleCook}
-            onShoot={handleShoot}
-            isBowActive={isBowActive}
-            isTorchActive={isTorchActive}
-            arrowCount={arrowCount}
-            time={gameState.time}
-            weather={gameState.weather}
-            isLocked={isLocked}
-            isMobile={isMobile}
-            mobileInput={mobileInput}
-            sfxEnabled={gameState.settings.sfxEnabled}
-            campfires={gameState.campfires}
-          />
-          <UIOverlay 
-            gameState={gameState} 
-            interaction={interaction}
-            onUseItem={handleUseItem}
-            isVisible={isLocked || isMobile}
-            onCraft={handleCraft}
-            onCook={handleCook}
-            cookingItem={cookingItem}
-            isHungerCritical={isHungerCritical}
-            isThirstCritical={isThirstCritical}
-            isWarmingUp={isWarmingUp}
-            showTodoList={showTodoList}
-            isMobile={isMobile}
-            onMobileInput={setMobileInput}
-            playerRotation={playerRotation}
-            activeToolId={activeToolId}
-          />
-        </>
-      )}
+      <GameScene 
+        ref={sceneRef}
+        onInteract={setInteraction} 
+        onCollect={handleCollect} 
+        onDrink={handleDrink}
+        onMovementChange={setMovementStatus}
+        onPositionUpdate={(info) => { 
+          playerInfoRef.current = info;
+          const angle = Math.atan2(info.dirX, info.dirZ);
+          setPlayerRotation(angle);
+        }}
+        onLockChange={setIsLocked}
+        onCook={handleCook}
+        onShoot={handleShoot}
+        isBowActive={isBowActive}
+        isTorchActive={isTorchActive}
+        arrowCount={arrowCount}
+        time={gameState.time}
+        weather={gameState.weather}
+        isLocked={isLocked}
+        isMobile={isMobile}
+        mobileInput={mobileInput}
+        sfxEnabled={gameState.settings.sfxEnabled}
+        campfires={gameState.campfires}
+      />
+      
+      <UIOverlay 
+        gameState={gameState} 
+        interaction={interaction}
+        onUseItem={handleUseItem}
+        isVisible={view === 'game' && (isLocked || isMobile)}
+        onCraft={handleCraft}
+        onCook={handleCook}
+        cookingItem={cookingItem}
+        isHungerCritical={isHungerCritical}
+        isThirstCritical={isThirstCritical}
+        isWarmingUp={isWarmingUp}
+        showTodoList={showTodoList}
+        isMobile={isMobile}
+        onMobileInput={setMobileInput}
+        playerRotation={playerRotation}
+        activeToolId={activeToolId}
+        isCraftingOpen={isCraftingOpen}
+        setIsCraftingOpen={setIsCraftingOpen}
+      />
 
       {view === 'menu' && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950 p-4 overflow-hidden">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xl p-4 overflow-hidden">
           <div className="text-center w-full max-w-5xl animate-in fade-in zoom-in duration-700 px-4">
             <h1 className="text-6xl sm:text-8xl md:text-9xl lg:text-[12rem] font-black mb-4 tracking-tighter italic text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-400 to-slate-800 drop-shadow-[0_20px_50px_rgba(0,0,0,0.8)] uppercase leading-[0.85] text-center select-none">
               WILD <br/> LANDS
