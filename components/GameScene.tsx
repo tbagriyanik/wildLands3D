@@ -78,7 +78,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
 
   useEffect(() => {
     if (!sceneRef.current) return;
-     campfireGroupRef.current.clear();
+    campfireGroupRef.current.clear();
     campfires.forEach(cf => {
       const group = new THREE.Group();
       group.position.set(cf.x, 0, cf.z);
@@ -104,12 +104,16 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
       const fireOuter = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.8, 8), new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0.6 }));
       fireOuter.position.y = 0.4; group.add(fireOuter);
       
-      const light = new THREE.PointLight(0xffaa00, 35, 20); // 20 Metre Aydınlatma
+      const light = new THREE.PointLight(0xffaa00, 35, 20); 
       light.position.y = 1.2; 
       light.castShadow = true; 
+      light.shadow.bias = -0.005; // Fix for shadow acne
+      light.shadow.mapSize.width = 512;
+      light.shadow.mapSize.height = 512;
       group.add(light);
       
       group.userData.fireMeshes = [fireInner, fireMid, fireOuter];
+      group.userData.baseLightY = 1.2;
       campfireGroupRef.current.add(group);
       sceneRef.current?.add(group);
     });
@@ -206,8 +210,9 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); 
     scene.add(ambientLight); ambientLightRef.current = ambientLight;
 
-    const torchLight = new THREE.PointLight(0xffaa00, 0, 5); // 10m Çap için 5m Yarıçap
+    const torchLight = new THREE.PointLight(0xffaa00, 0, 8); 
     torchLight.castShadow = true;
+    torchLight.shadow.bias = -0.002;
     scene.add(torchLight); torchLightRef.current = torchLight;
 
     const bowModel = new THREE.Group();
@@ -237,7 +242,6 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(2500, 2500), new THREE.MeshStandardMaterial({ color: 0x1a2e1a, roughness: 1.0 }));
     ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 
-    // ADD 4 PUDDLES
     for (let i = 0; i < 4; i++) {
         const px = (Math.random() - 0.5) * 600;
         const pz = (Math.random() - 0.5) * 600;
@@ -369,7 +373,12 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
 
         if (torchLightRef.current && isTorchActive) {
           torchLightRef.current.position.copy(camera.position).add(tempCamDir.clone().multiplyScalar(0.6));
-          torchLightRef.current.intensity = 25 + Math.sin(now * 0.012) * 6;
+          // Realistic torch flicker
+          const flicker = Math.sin(now * 0.01) * 2 + Math.sin(now * 0.05) * 4;
+          torchLightRef.current.intensity = 25 + flicker;
+          // Jitter torch light position slightly
+          torchLightRef.current.position.x += (Math.random() - 0.5) * 0.05;
+          torchLightRef.current.position.z += (Math.random() - 0.5) * 0.05;
         }
         
         if (isBowActive && bowInHandRef.current) {
@@ -394,7 +403,17 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
                m.rotation.y += 0.02;
              });
              const light = cf.children.find(c => c instanceof THREE.PointLight) as THREE.PointLight;
-             if (light) light.intensity = 30 + Math.sin(now * 0.02) * 8;
+             if (light) {
+               // Complex flicker logic for campfire
+               const flicker = Math.sin(now * 0.01) * 5 + Math.sin(now * 0.04) * 10 + (Math.random() - 0.5) * 5;
+               light.intensity = 35 + flicker;
+               
+               // Dynamic shadow movement by jittering light position
+               const jitterRange = 0.15;
+               light.position.x = (Math.random() - 0.5) * jitterRange;
+               light.position.z = (Math.random() - 0.5) * jitterRange;
+               light.position.y = cf.userData.baseLightY + (Math.random() - 0.5) * jitterRange * 0.5;
+             }
            }
         });
 
