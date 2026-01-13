@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import * as THREE from 'three';
-import { PointerLockControls } from 'this/examples/jsm/controls/PointerLockControls';
+import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import { Water } from 'three/examples/jsm/objects/Water';
 import { Sky } from 'three/examples/jsm/objects/Sky';
 import { InteractionTarget, WeatherType, CampfireData, MobileInput } from '../types';
@@ -54,9 +54,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
   const torchLightRef = useRef<THREE.PointLight | null>(null);
   const worldObjectsRef = useRef<THREE.Object3D[]>([]);
   const groundedArrowsRef = useRef<THREE.Object3D[]>([]);
-  const waterRef = useRef<Water | null>(null);
   
-  // Hand Items
   const bowInHandRef = useRef<THREE.Group | null>(null);
   const torchInHandRef = useRef<THREE.Group | null>(null);
   
@@ -80,7 +78,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
 
   useEffect(() => {
     if (!sceneRef.current) return;
-    campfireGroupRef.current.clear();
+     campfireGroupRef.current.clear();
     campfires.forEach(cf => {
       const group = new THREE.Group();
       group.position.set(cf.x, 0, cf.z);
@@ -106,7 +104,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
       const fireOuter = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.8, 8), new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0.6 }));
       fireOuter.position.y = 0.4; group.add(fireOuter);
       
-      const light = new THREE.PointLight(0xffaa00, 35, 20); 
+      const light = new THREE.PointLight(0xffaa00, 35, 20); // 20 Metre Aydınlatma
       light.position.y = 1.2; 
       light.castShadow = true; 
       group.add(light);
@@ -159,7 +157,6 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     r.setFromCamera(new THREE.Vector2(0,0), cameraRef.current);
     
     const interactables = worldObjectsRef.current.filter(o => o.visible && o.position.distanceTo(cameraRef.current!.position) < 12);
-    if (waterRef.current && waterRef.current.position.distanceTo(cameraRef.current.position) < 15) interactables.push(waterRef.current);
     campfireGroupRef.current.children.forEach(c => { if (c.position.distanceTo(cameraRef.current!.position) < 10) interactables.push(c); });
     critterGroupRef.current.children.forEach(c => { if (c.visible && c.position.distanceTo(cameraRef.current!.position) < 10) interactables.push(c); });
     
@@ -209,7 +206,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); 
     scene.add(ambientLight); ambientLightRef.current = ambientLight;
 
-    const torchLight = new THREE.PointLight(0xffaa00, 0, 45); 
+    const torchLight = new THREE.PointLight(0xffaa00, 0, 5); // 10m Çap için 5m Yarıçap
     torchLight.castShadow = true;
     scene.add(torchLight); torchLightRef.current = torchLight;
 
@@ -242,15 +239,15 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
 
     // ADD 4 PUDDLES
     for (let i = 0; i < 4; i++) {
-        const px = (Math.random() - 0.5) * 800;
-        const pz = (Math.random() - 0.5) * 800;
-        const puddleGeo = new THREE.CircleGeometry(6 + Math.random() * 8, 16);
+        const px = (Math.random() - 0.5) * 600;
+        const pz = (Math.random() - 0.5) * 600;
+        const puddleGeo = new THREE.CircleGeometry(4 + Math.random() * 6, 16);
         const puddleMat = new THREE.MeshStandardMaterial({ 
-          color: 0x1e3a8a, 
-          roughness: 0.05, 
-          metalness: 0.8, 
+          color: 0x1e40af, 
+          roughness: 0.02, 
+          metalness: 0.6, 
           transparent: true, 
-          opacity: 0.7 
+          opacity: 0.8
         });
         const puddle = new THREE.Mesh(puddleGeo, puddleMat);
         puddle.rotation.x = -Math.PI / 2;
@@ -312,7 +309,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     const onKD = (e: KeyboardEvent) => {
         const k = e.code.toLowerCase();
         if(k === 'keyw') keys.w = true; if(k === 'keya') keys.a = true; if(k === 'keys') keys.s = true; if(k === 'keyd') keys.d = true;
-        if(k === 'shiftleft') keys.shift = true; if(k === 'keye') triggerAction();
+        if(k === 'shiftleft') keys.shift = true;
     };
     const onKU = (e: KeyboardEvent) => {
         const k = e.code.toLowerCase();
@@ -321,7 +318,10 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     };
     window.addEventListener('keydown', onKD); window.addEventListener('keyup', onKU);
     renderer.domElement.addEventListener('mousedown', (e) => { 
-        if((controls.isLocked || isMobile) && e.button === 0) { if (propsRef.current.isBowActive && propsRef.current.arrowCount > 0) spawnArrow(); else triggerAction(); } 
+        if((controls.isLocked || isMobile) && e.button === 0) { 
+          if (propsRef.current.isBowActive && propsRef.current.arrowCount > 0) spawnArrow(); 
+          else triggerAction(); 
+        } 
     });
 
     let verticalVelocity = 0;
@@ -398,18 +398,10 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
            }
         });
 
-        // PROJECTILE PHYSICS & STICKING
+        // PROJECTILE PHYSICS
         const proj = (window as any).projectiles || [];
         (window as any).projectiles = proj.filter((p: any) => {
-          if (p.isStuck) {
-            if (p.stuckTo && !p.stuckTo.visible) {
-              p.isStuck = false; 
-              p.stuckTo = null;
-              p.velocity.set(0, -5, 0); 
-              return true;
-            }
-            return true;
-          }
+          if (p.isStuck) return true;
 
           const prevPos = p.mesh.position.clone();
           p.velocity.y -= 16 * delta; 
@@ -417,9 +409,8 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
           p.mesh.lookAt(p.mesh.position.clone().add(p.velocity));
           p.mesh.rotateX(Math.PI/2);
           
-          const rayDir = p.mesh.position.clone().sub(prevPos).normalize();
+          raycaster.set(prevPos, p.velocity.clone().normalize());
           const rayDist = prevPos.distanceTo(p.mesh.position);
-          raycaster.set(prevPos, rayDir);
 
           const interactables = [...worldObjectsRef.current, ...critterGroupRef.current.children].filter(o => o.visible);
           const hits = raycaster.intersectObjects(interactables, true);
@@ -445,7 +436,6 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
             p.isStuck = true; 
             p.mesh.position.y = 0.1;
             p.mesh.rotation.x = Math.PI / 2;
-            p.mesh.rotation.z = Math.random() * Math.PI * 2;
             groundedArrowsRef.current.push(p.mesh);
           }
           return true;
@@ -456,8 +446,6 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
                 propsRef.current.onCollect('Arrow');
                 scene.remove(groundedArrowsRef.current[i]);
                 groundedArrowsRef.current.splice(i, 1);
-                const projList = (window as any).projectiles || [];
-                (window as any).projectiles = projList.filter((p: any) => p.mesh !== groundedArrowsRef.current[i]);
             }
         }
 

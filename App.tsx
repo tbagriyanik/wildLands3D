@@ -7,7 +7,6 @@ import { INITIAL_STATS, SURVIVAL_DECAY_RATES, TRANSLATIONS, SFX_URLS } from './c
 
 const SAVE_KEY = 'wildlands_survival_v18';
 
-// Priority sorting for items: Tools > Cooked Food > Raw Food > Resources
 const ITEM_PRIORITY: Record<string, number> = {
   'Bow': 100,
   'Torch': 99,
@@ -78,6 +77,7 @@ const App: React.FC = () => {
   
   const todoTimeoutRef = useRef<number | null>(null);
   const cookingTimeoutRef = useRef<number | null>(null);
+  const craftingTimeoutRef = useRef<number | null>(null);
   
   const [movementStatus, setMovementStatus] = useState({ moving: false, sprinting: false });
   const [mobileInput, setMobileInput] = useState<MobileInput>({ moveX: 0, moveY: 0, lookX: 0, lookY: 0, jump: false, sprint: false, interact: false, attack: false });
@@ -97,6 +97,19 @@ const App: React.FC = () => {
   const isBowActive = equippedItem?.name === 'Bow';
   const isTorchActive = equippedItem?.name === 'Torch';
   const arrowCount = gameState.inventory.find(i => i.name === 'Arrow')?.count || 0;
+
+  // Auto-close crafting menu after 10 seconds
+  useEffect(() => {
+    if (isCraftingOpen) {
+      if (craftingTimeoutRef.current) window.clearTimeout(craftingTimeoutRef.current);
+      craftingTimeoutRef.current = window.setTimeout(() => {
+        setIsCraftingOpen(false);
+      }, 10000);
+    }
+    return () => {
+      if (craftingTimeoutRef.current) window.clearTimeout(craftingTimeoutRef.current);
+    };
+  }, [isCraftingOpen]);
 
   useEffect(() => {
     if (showTodoList) {
@@ -326,6 +339,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handleKeys = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
       if (view === 'game') {
         if (e.key === 'Escape') { 
           if (isCraftingOpen) {
@@ -336,11 +350,22 @@ const App: React.FC = () => {
           }
           return; 
         }
-        if (e.key.toLowerCase() === 'c') { setIsCraftingOpen(prev => !prev); return; }
-        if (e.key.toLowerCase() === 'x') { handleCraft('arrows'); return; }
-        if (e.key.toLowerCase() === 'v') { handleCraft('bow'); return; }
-        if (e.key.toLowerCase() === 't') { handleCraft('torch'); return; }
-        if (e.key.toLowerCase() === 'i') { setShowTodoList(prev => !prev); return; }
+        if (k === 'c') { setIsCraftingOpen(prev => !prev); return; }
+        if (k === 'f') { handleCraft('campfire'); return; }
+        if (k === 'x') { handleCraft('arrows'); return; }
+        if (k === 'b') { 
+          const bow = gameState.inventory.find(i => i.name === 'Bow');
+          if (bow) handleUseItem(bow.id);
+          return; 
+        }
+        if (k === 't') { 
+          const torch = gameState.inventory.find(i => i.name === 'Torch');
+          if (torch) handleUseItem(torch.id);
+          return; 
+        }
+        if (k === 'e') { sceneRef.current?.triggerAction(); return; }
+        if (k === 'i') { setShowTodoList(prev => !prev); return; }
+
         const keyNum = parseInt(e.key);
         if (!isNaN(keyNum) && keyNum >= 1 && keyNum <= 9) {
           const item = gameState.inventory[keyNum - 1];
