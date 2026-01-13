@@ -5,7 +5,7 @@ import UIOverlay from './components/UIOverlay';
 import { GameState, InteractionTarget, MobileInput } from './types';
 import { INITIAL_STATS, SURVIVAL_DECAY_RATES, TRANSLATIONS, SFX_URLS } from './constants';
 
-const SAVE_KEY = 'wildlands_survival_v14';
+const SAVE_KEY = 'wildlands_survival_v15';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'menu' | 'game' | 'settings'>('menu');
@@ -18,7 +18,7 @@ const App: React.FC = () => {
         const parsed = JSON.parse(saved);
         return { 
           ...parsed, 
-          settings: parsed.settings || { language: 'tr', musicEnabled: true, sfxEnabled: true },
+          settings: parsed.settings || { language: 'en', musicEnabled: true, sfxEnabled: true },
           campfires: parsed.campfires || []
         };
       } catch (e) { console.error("Save load failed:", e); }
@@ -33,7 +33,7 @@ const App: React.FC = () => {
       ],
       day: 1,
       time: 600,
-      settings: { language: 'tr', musicEnabled: true, sfxEnabled: true },
+      settings: { language: 'en', musicEnabled: true, sfxEnabled: true },
       weather: 'sunny',
       campfires: []
     };
@@ -46,7 +46,7 @@ const App: React.FC = () => {
   const [movementStatus, setMovementStatus] = useState({ moving: false, sprinting: false });
   const [mobileInput, setMobileInput] = useState<MobileInput>({ moveX: 0, moveY: 0, jump: false, sprint: false, interact: false, attack: false });
   
-  const playerPosRef = useRef({ x: 120, z: 120 });
+  const playerInfoRef = useRef({ x: 120, z: 120, dirX: 0, dirZ: -1 });
   const [isHungerCritical, setIsHungerCritical] = useState(false);
   const [isThirstCritical, setIsThirstCritical] = useState(false);
   
@@ -85,7 +85,7 @@ const App: React.FC = () => {
       const sfx = new Audio(url);
       sfx.volume = volume;
       if (randomizePitch) sfx.playbackRate = 0.9 + Math.random() * 0.2;
-      sfx.play().catch(() => {});
+      sfx.play().catch((e) => console.log("SFX Play Blocked", e));
     }
   }, [gameState.settings.sfxEnabled]);
 
@@ -184,7 +184,10 @@ const App: React.FC = () => {
           newInventory = newInventory.map(item => item.name === 'Wood' ? { ...item, count: item.count - 3 } : item);
           newInventory = newInventory.map(item => item.name === 'Flint Stone' ? { ...item, count: item.count - 1 } : item).filter(i => i.count > 0);
           crafted = true;
-          return { ...prev, inventory: newInventory, campfires: [...prev.campfires, { id: Math.random().toString(), x: playerPosRef.current.x, z: playerPosRef.current.z }]};
+          // Spawn campfire 2.5 units in front of player
+          const spawnX = playerInfoRef.current.x + playerInfoRef.current.dirX * 2.5;
+          const spawnZ = playerInfoRef.current.z + playerInfoRef.current.dirZ * 2.5;
+          return { ...prev, inventory: newInventory, campfires: [...prev.campfires, { id: Math.random().toString(), x: spawnX, z: spawnZ }]};
         }
       } else if (type === 'arrows') {
         if (wood && wood.count >= 1) {
@@ -286,8 +289,8 @@ const App: React.FC = () => {
         }
         newStats.energy = Math.max(0, newStats.energy - SURVIVAL_DECAY_RATES.energy_base);
         const nearFire = prev.campfires.some(cf => {
-          const dx = cf.x - playerPosRef.current.x;
-          const dz = cf.z - playerPosRef.current.z;
+          const dx = cf.x - playerInfoRef.current.x;
+          const dz = cf.z - playerInfoRef.current.z;
           return Math.sqrt(dx*dx + dz*dz) < 10;
         });
         const isNight = prev.time > 1900 || prev.time < 500;
@@ -330,7 +333,7 @@ const App: React.FC = () => {
       weather: 'sunny',
       campfires: []
     };
-    playerPosRef.current = { x: 120, z: 120 };
+    playerInfoRef.current = { x: 120, z: 120, dirX: 0, dirZ: -1 };
     setGameState(newState);
     setIsGameOver(false);
     setIsHungerCritical(false);
@@ -351,7 +354,7 @@ const App: React.FC = () => {
             onCollect={handleCollect} 
             onDrink={handleDrink}
             onMovementChange={setMovementStatus}
-            onPositionUpdate={(pos) => { playerPosRef.current = pos; }}
+            onPositionUpdate={(info) => { playerInfoRef.current = info; }}
             onLockChange={setIsLocked}
             onCook={handleCook}
             onShoot={handleShoot}

@@ -11,7 +11,7 @@ interface GameSceneProps {
   onCollect: (type: string) => void;
   onDrink: () => void;
   onMovementChange: (status: { moving: boolean, sprinting: boolean }) => void;
-  onPositionUpdate: (pos: { x: number, z: number }) => void;
+  onPositionUpdate: (info: { x: number, z: number, dirX: number, dirZ: number }) => void;
   onLockChange: (locked: boolean) => void;
   onCook: () => void;
   onShoot: () => void;
@@ -69,7 +69,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
       const sfx = new Audio(url);
       sfx.volume = volume;
       if (randomizePitch) sfx.playbackRate = 0.9 + Math.random() * 0.2;
-      sfx.play().catch(() => {});
+      sfx.play().catch((e) => console.log("SFX Play Error", e));
     }
   };
 
@@ -115,14 +115,38 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
         const t = o.userData.type;
         if(t === 'water') propsRef.current.onDrink();
         else if(t === 'campfire') propsRef.current.onCook();
-        else if(t === 'critter') { propsRef.current.onCollect('Raw Meat'); o.visible = false; o.userData.type = 'none'; }
-        else if (t === 'arrow') { propsRef.current.onCollect('Arrow'); sceneRef.current.remove(o); groundedArrowsRef.current = groundedArrowsRef.current.filter(a => a !== o); }
+        else if(t === 'critter') { 
+            propsRef.current.onCollect('Raw Meat'); 
+            o.visible = false; 
+            o.userData.type = 'none'; 
+            o.userData.isObstacle = false;
+        }
+        else if (t === 'arrow') { 
+            propsRef.current.onCollect('Arrow'); 
+            sceneRef.current.remove(o); 
+            groundedArrowsRef.current = groundedArrowsRef.current.filter(a => a !== o); 
+        }
         else if (t === 'appleTree') {
             const apples = o.getObjectByName('apples');
             if (apples && apples.visible) { propsRef.current.onCollect('Apple'); apples.visible = false; o.userData.type = 'tree'; }
-            else { propsRef.current.onCollect('Wood'); o.visible = false; o.userData.type = 'none'; o.userData.isObstacle = false; }
-        } else if (t === 'tree') { propsRef.current.onCollect('Wood'); o.visible = false; o.userData.type = 'none'; o.userData.isObstacle = false; }
-        else if (t === 'rock' || t === 'bush') { propsRef.current.onCollect(t === 'rock' ? 'Stone' : 'Berries'); o.visible = false; o.userData.type = 'none'; o.userData.isObstacle = false; }
+            else { 
+                propsRef.current.onCollect('Wood'); 
+                o.visible = false; 
+                o.userData.type = 'none'; 
+                o.userData.isObstacle = false; 
+            }
+        } else if (t === 'tree') { 
+            propsRef.current.onCollect('Wood'); 
+            o.visible = false; 
+            o.userData.type = 'none'; 
+            o.userData.isObstacle = false; 
+        }
+        else if (t === 'rock' || t === 'bush') { 
+            propsRef.current.onCollect(t === 'rock' ? 'Stone' : 'Berries'); 
+            o.visible = false; 
+            o.userData.type = 'none'; 
+            o.userData.isObstacle = false; 
+        }
     }
   };
 
@@ -131,9 +155,16 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     const arrowGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.8, 8);
     const arrow = new THREE.Mesh(arrowGeo, new THREE.MeshStandardMaterial({ color: 0x8b4513 }));
     arrow.userData.type = 'arrow';
+    
     const cameraDirection = new THREE.Vector3(); cameraRef.current.getWorldDirection(cameraDirection);
-    arrow.position.copy(cameraRef.current.position).add(cameraDirection.clone().multiplyScalar(0.5));
-    const velocity = cameraDirection.clone().multiplyScalar(70);
+    const camSide = new THREE.Vector3().crossVectors(cameraDirection, new THREE.Vector3(0,1,0)).normalize();
+    
+    // Position slightly offset to the right for better visual flow
+    arrow.position.copy(cameraRef.current.position)
+      .add(cameraDirection.clone().multiplyScalar(0.6))
+      .add(camSide.clone().multiplyScalar(0.15));
+      
+    const velocity = cameraDirection.clone().multiplyScalar(75);
     arrow.lookAt(arrow.position.clone().add(velocity)); arrow.rotateX(Math.PI/2);
     sceneRef.current.add(arrow);
     (window as any).projectiles = (window as any).projectiles || [];
@@ -398,13 +429,13 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
             if (p.isStuck) { if (p.mesh.position.distanceTo(camera.position) < 6) { propsRef.current.onCollect('Arrow'); scene.remove(p.mesh); return; } activeProjectiles.push(p); return; }
             p.velocity.y -= 9.8 * delta; p.mesh.position.add(p.velocity.clone().multiplyScalar(delta));
             p.mesh.lookAt(p.mesh.position.clone().add(p.velocity)); p.mesh.rotateX(Math.PI/2);
-            animals.forEach(a => { if (p.mesh.position.distanceTo(a.mesh.position) < 1) { propsRef.current.onCollect('Raw Meat'); a.mesh.visible = false; a.mesh.userData.type = 'none'; p.isStuck = true; playSFX(SFX_URLS.collect_meat, 0.6); } });
+            animals.forEach(a => { if (a.mesh.visible && p.mesh.position.distanceTo(a.mesh.position) < 1) { propsRef.current.onCollect('Raw Meat'); a.mesh.visible = false; a.mesh.userData.type = 'none'; p.isStuck = true; playSFX(SFX_URLS.collect_meat, 0.6); } });
             if (p.mesh.position.y < 0.2) { p.isStuck = true; p.mesh.position.y = 0.2; groundedArrowsRef.current.push(p.mesh); } activeProjectiles.push(p);
         });
         (window as any).projectiles = activeProjectiles;
 
         groundedArrowsRef.current.forEach(arr => { if (arr.position.distanceTo(camera.position) < 5) { propsRef.current.onCollect('Arrow'); scene.remove(arr); groundedArrowsRef.current = groundedArrowsRef.current.filter(a => a !== arr); } });
-        animals.forEach(a => { a.timer--; if (a.state === 'idle') { if (a.timer <= 0) { a.state = 'moving'; a.timer = 400 + Math.random()*800; a.targetPos.set(a.mesh.position.x+(Math.random()-0.5)*45, 0.15, a.mesh.position.z+(Math.random()-0.5)*45); a.mesh.lookAt(a.targetPos); } } else { a.mesh.position.lerp(a.targetPos, 0.004); if (a.mesh.position.distanceTo(a.targetPos) < 1.5) a.state = 'idle'; } });
+        animals.forEach(a => { a.timer--; if (a.state === 'idle') { if (a.timer <= 0) { a.state = 'moving'; a.timer = 400 + Math.random()*800; a.targetPos.set(a.mesh.position.x+(Math.random()-0.5)*45, 0.15, a.mesh.position.z+(Math.random()-0.5)*45); a.mesh.lookAt(a.targetPos); } } else if (a.mesh.visible) { a.mesh.position.lerp(a.targetPos, 0.004); if (a.mesh.position.distanceTo(a.targetPos) < 1.5) a.state = 'idle'; } });
 
         velocity.x -= velocity.x * 10 * delta; velocity.z -= velocity.z * 10 * delta;
         verticalVelocity -= 15 * delta; camera.position.y += verticalVelocity * delta;
@@ -436,13 +467,23 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
         if (mobileActive && mobileInput.attack) { if (propsRef.current.hasBow && propsRef.current.arrowCount > 0) spawnArrow(); else triggerAction(); mobileInput.attack = false; }
 
         if(controls.isLocked || mobileActive) {
-            obstacles.forEach(o => {
+            // Updated to filter only visible obstacles for collision detection
+            obstacles.filter(o => o.visible).forEach(o => {
                 const dx = camera.position.x - o.position.x; const dz = camera.position.z - o.position.z;
                 const distSq = dx*dx + dz*dz; const min = (o.userData.radius || 1) + 0.65;
                 if (distSq < min * min) { const d = Math.sqrt(distSq); if(d > 0.01) { const f = min/d; camera.position.x = o.position.x + dx*f; camera.position.z = o.position.z + dz*f; } }
             });
+            
+            const curCamDir = new THREE.Vector3();
+            camera.getWorldDirection(curCamDir);
             propsRef.current.onMovementChange({ moving, sprinting: moving && sprinting });
-            propsRef.current.onPositionUpdate({ x: camera.position.x, z: camera.position.z });
+            propsRef.current.onPositionUpdate({ 
+              x: camera.position.x, 
+              z: camera.position.z,
+              dirX: curCamDir.x,
+              dirZ: curCamDir.z
+            });
+            
             const r = new THREE.Raycaster(); r.setFromCamera(new THREE.Vector2(0,0), camera);
             const hits = r.intersectObjects(scene.children.filter(c => c.visible), true);
             const target = hits.find(h => h.object.userData && h.object.userData.type && h.object.userData.type !== 'none');
