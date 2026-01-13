@@ -85,6 +85,9 @@ export const TRANSLATIONS = {
     taskBow: "Craft a Bow",
     taskTorch: "Craft a Torch",
     taskMeat: "Hunt for Meat",
+    tagline: "Survive in the Wildlands",
+    on: "ON",
+    off: "OFF"
   },
   tr: {
     newGame: "YENİ OYUN",
@@ -143,6 +146,9 @@ export const TRANSLATIONS = {
     taskBow: "Yay Üret",
     taskTorch: "Meşale Yap",
     taskMeat: "Avlan ve Et Bul",
+    tagline: "Vahşi Doğada Hayatta Kal",
+    on: "AÇIK",
+    off: "KAPALI"
   }
 };
 

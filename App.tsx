@@ -2,13 +2,15 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import GameScene, { GameSceneHandle } from './components/GameScene';
 import UIOverlay from './components/UIOverlay';
-import { GameState, InteractionTarget, InventoryItem } from './types';
+import { GameState, InteractionTarget, MobileInput } from './types';
 import { INITIAL_STATS, SURVIVAL_DECAY_RATES, TRANSLATIONS, SFX_URLS } from './constants';
 
-const SAVE_KEY = 'wildlands_survival_v13';
+const SAVE_KEY = 'wildlands_survival_v14';
 
 const App: React.FC = () => {
   const [view, setView] = useState<'menu' | 'game' | 'settings'>('menu');
+  const [isMobile, setIsMobile] = useState(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+  
   const [gameState, setGameState] = useState<GameState>(() => {
     const saved = localStorage.getItem(SAVE_KEY);
     if (saved) {
@@ -19,7 +21,7 @@ const App: React.FC = () => {
           settings: parsed.settings || { language: 'tr', musicEnabled: true, sfxEnabled: true },
           campfires: parsed.campfires || []
         };
-      } catch (e) { console.error("Kayıt yüklenemedi:", e); }
+      } catch (e) { console.error("Save load failed:", e); }
     }
     return {
       stats: { ...INITIAL_STATS },
@@ -42,8 +44,9 @@ const App: React.FC = () => {
   const [isLocked, setIsLocked] = useState(false);
   const [showTodoList, setShowTodoList] = useState(true);
   const [movementStatus, setMovementStatus] = useState({ moving: false, sprinting: false });
-  const playerPosRef = useRef({ x: 120, z: 120 });
+  const [mobileInput, setMobileInput] = useState<MobileInput>({ moveX: 0, moveY: 0, jump: false, sprint: false, interact: false, attack: false });
   
+  const playerPosRef = useRef({ x: 120, z: 120 });
   const [isHungerCritical, setIsHungerCritical] = useState(false);
   const [isThirstCritical, setIsThirstCritical] = useState(false);
   
@@ -71,15 +74,17 @@ const App: React.FC = () => {
       gameAudioRef.current.loop = true;
       gameAudioRef.current.volume = 0.15;
     }
+    
+    const checkMobile = () => setIsMobile(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const playSFX = useCallback((url: string, volume = 0.4, randomizePitch = true) => {
     if (gameState.settings.sfxEnabled) {
       const sfx = new Audio(url);
       sfx.volume = volume;
-      if (randomizePitch) {
-        sfx.playbackRate = 0.9 + Math.random() * 0.2;
-      }
+      if (randomizePitch) sfx.playbackRate = 0.9 + Math.random() * 0.2;
       sfx.play().catch(() => {});
     }
   }, [gameState.settings.sfxEnabled]);
@@ -93,24 +98,18 @@ const App: React.FC = () => {
 
     if (view === 'menu' || view === 'settings') {
       gameAudioRef.current?.pause();
-      if (menuAudioRef.current?.paused) {
-        menuAudioRef.current.play().catch(e => console.log("Audio unlocker needed"));
-      }
+      if (menuAudioRef.current?.paused) menuAudioRef.current.play().catch(() => {});
     } else if (view === 'game') {
       menuAudioRef.current?.pause();
-      if (isLocked) {
-        if (gameAudioRef.current?.paused) {
-          gameAudioRef.current.play().catch(e => console.log("Audio unlocker needed"));
-        }
+      if (isLocked || isMobile) {
+        if (gameAudioRef.current?.paused) gameAudioRef.current?.play().catch(() => {});
       } else {
         gameAudioRef.current?.pause();
       }
     }
-  }, [gameState.settings.musicEnabled, view, isLocked]);
+  }, [gameState.settings.musicEnabled, view, isLocked, isMobile]);
 
-  useEffect(() => {
-    startMusic();
-  }, [startMusic, view, isLocked, gameState.settings.musicEnabled]);
+  useEffect(() => { startMusic(); }, [startMusic, view, isLocked, gameState.settings.musicEnabled]);
 
   const handleUseItem = useCallback((itemId: string) => {
     setGameState(prev => {
@@ -124,20 +123,17 @@ const App: React.FC = () => {
         newStats.thirst = Math.min(100, newStats.thirst + 5);
         consumed = true; 
         playSFX(SFX_URLS.eat_crunchy, 0.5);
-      }
-      else if (item.name === 'Apple' || item.name === 'Roasted Apple') { 
+      } else if (item.name === 'Apple' || item.name === 'Roasted Apple') { 
         newStats.hunger = Math.min(100, newStats.hunger + (item.name === 'Apple' ? 25 : 50)); 
         newStats.thirst = Math.min(100, newStats.thirst + 10);
         consumed = true; 
         playSFX(SFX_URLS.eat_crunchy, 0.5);
-      }
-      else if (item.name === 'Raw Meat') {
+      } else if (item.name === 'Raw Meat') {
         newStats.hunger = Math.min(100, newStats.hunger + 10);
         newStats.health = Math.max(0, newStats.health - 5); 
         consumed = true;
         playSFX(SFX_URLS.eat_crunchy, 0.5);
-      }
-      else if (item.name === 'Cooked Meat') {
+      } else if (item.name === 'Cooked Meat') {
         newStats.hunger = Math.min(100, newStats.hunger + 60);
         newStats.health = Math.min(100, newStats.health + 15);
         consumed = true;
@@ -275,7 +271,7 @@ const App: React.FC = () => {
   }, [view, gameState.inventory, handleUseItem, handleCraft]);
 
   useEffect(() => {
-    if (view !== 'game' || !isLocked) return;
+    if (view !== 'game' || (!isLocked && !isMobile)) return;
     const interval = setInterval(() => {
       setGameState(prev => {
         if (prev.stats.health <= 0) return prev;
@@ -311,18 +307,13 @@ const App: React.FC = () => {
         let newTime = prev.time + 3.0;
         let newDay = prev.day;
         if (newTime >= 2400) { newTime = 0; newDay++; }
-        
-        // Random weather changes (every hour on average)
         let newWeather = prev.weather;
-        if (Math.random() < 0.005) {
-          newWeather = Math.random() < 0.3 ? 'rainy' : 'sunny';
-        }
-
+        if (Math.random() < 0.005) newWeather = Math.random() < 0.3 ? 'rainy' : 'sunny';
         return { ...prev, stats: newStats, time: newTime, day: newDay, weather: newWeather };
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [view, isLocked, movementStatus, isHungerCritical, isThirstCritical, playSFX]);
+  }, [view, isLocked, movementStatus, isHungerCritical, isThirstCritical, playSFX, isMobile]);
 
   const restartGame = () => {
     const newState: GameState = {
@@ -359,7 +350,7 @@ const App: React.FC = () => {
             onInteract={setInteraction} 
             onCollect={handleCollect} 
             onDrink={handleDrink}
-            onMovementChange={(status) => setMovementStatus(status)}
+            onMovementChange={setMovementStatus}
             onPositionUpdate={(pos) => { playerPosRef.current = pos; }}
             onLockChange={setIsLocked}
             onCook={handleCook}
@@ -370,6 +361,8 @@ const App: React.FC = () => {
             time={gameState.time}
             weather={gameState.weather}
             isLocked={isLocked}
+            isMobile={isMobile}
+            mobileInput={mobileInput}
             sfxEnabled={gameState.settings.sfxEnabled}
             campfires={gameState.campfires}
           />
@@ -377,59 +370,61 @@ const App: React.FC = () => {
             gameState={gameState} 
             interaction={interaction}
             onUseItem={handleUseItem}
-            isVisible={isLocked}
+            isVisible={isLocked || isMobile}
             onCraft={handleCraft}
             isHungerCritical={isHungerCritical}
             isThirstCritical={isThirstCritical}
             showTodoList={showTodoList}
+            isMobile={isMobile}
+            onMobileInput={setMobileInput}
           />
         </>
       )}
 
       {view === 'menu' && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950 p-6 overflow-hidden">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950 p-4 overflow-hidden">
           <div className="text-center w-full max-w-4xl animate-in fade-in zoom-in duration-700">
-            <h1 className="text-8xl md:text-[14rem] font-black mb-4 tracking-tighter italic text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-400 to-slate-800 drop-shadow-[0_20px_50px_rgba(0,0,0,0.8)] uppercase leading-[0.85] text-center select-none">
+            <h1 className="text-6xl sm:text-8xl md:text-[14rem] font-black mb-4 tracking-tighter italic text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-400 to-slate-800 drop-shadow-[0_20px_50px_rgba(0,0,0,0.8)] uppercase leading-[0.85] text-center select-none">
               WILD <br/> LANDS
             </h1>
-            <p className="text-indigo-500 font-mono tracking-[1.5em] mb-16 opacity-80 uppercase text-xs md:text-sm">Vahşi Doğada Hayatta Kal</p>
-            <div className="flex flex-col gap-5 max-w-md mx-auto">
-              <button onClick={() => setView('game')} className="group relative py-6 bg-white text-slate-950 font-black rounded-[2rem] hover:bg-indigo-50 transition-all shadow-[0_10px_40px_rgba(255,255,255,0.1)] text-xl uppercase tracking-widest overflow-hidden">
+            <p className="text-indigo-500 font-mono tracking-[1.5em] mb-8 sm:mb-16 opacity-80 uppercase text-[10px] sm:text-sm">{t.tagline}</p>
+            <div className="flex flex-col gap-4 sm:gap-5 max-w-xs sm:max-w-md mx-auto">
+              <button onClick={() => setView('game')} className="group relative py-4 sm:py-6 bg-white text-slate-950 font-black rounded-2xl sm:rounded-[2rem] hover:bg-indigo-50 transition-all shadow-[0_10px_40px_rgba(255,255,255,0.1)] text-lg sm:text-xl uppercase tracking-widest overflow-hidden">
                 <span className="relative z-10">{t.continue}</span>
                 <div className="absolute inset-0 bg-indigo-100 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
               </button>
-              <button onClick={restartGame} className="py-5 bg-slate-900/50 hover:bg-slate-800 font-bold rounded-[2rem] border border-white/10 transition-all uppercase tracking-widest text-white/70 hover:text-white">{t.newGame}</button>
-              <button onClick={() => setView('settings')} className="py-5 bg-slate-900/50 hover:bg-slate-800 font-bold rounded-[2rem] border border-white/10 transition-all uppercase tracking-widest text-white/70 hover:text-white">{t.settings}</button>
+              <button onClick={restartGame} className="py-3 sm:py-5 bg-slate-900/50 hover:bg-slate-800 font-bold rounded-2xl sm:rounded-[2rem] border border-white/10 transition-all uppercase tracking-widest text-white/70 hover:text-white text-sm sm:text-base">{t.newGame}</button>
+              <button onClick={() => setView('settings')} className="py-3 sm:py-5 bg-slate-900/50 hover:bg-slate-800 font-bold rounded-2xl sm:rounded-[2rem] border border-white/10 transition-all uppercase tracking-widest text-white/70 hover:text-white text-sm sm:text-base">{t.settings}</button>
             </div>
           </div>
         </div>
       )}
 
       {view === 'settings' && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-3xl p-6">
-          <div className="w-full max-w-md p-12 bg-slate-900/80 border border-white/5 rounded-[3rem] shadow-2xl">
-            <h2 className="text-4xl font-black mb-12 tracking-tight text-center uppercase text-white/90">{t.settings}</h2>
-            <div className="flex flex-col gap-6">
-              <button onClick={() => setGameState(p => ({...p, settings: {...p.settings, language: p.settings.language === 'en' ? 'tr' : 'en'}}))} className="flex justify-between items-center p-8 bg-white/5 rounded-3xl border border-white/5 hover:bg-white/10 transition-all">
-                <span className="text-slate-500 font-black uppercase text-xs tracking-widest">{t.language}</span>
-                <span className="font-black uppercase text-indigo-400 text-lg">{gameState.settings.language}</span>
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-3xl p-4 sm:p-6">
+          <div className="w-full max-w-md p-8 sm:p-12 bg-slate-900/80 border border-white/5 rounded-[2rem] sm:rounded-[3rem] shadow-2xl">
+            <h2 className="text-3xl sm:text-4xl font-black mb-8 sm:mb-12 tracking-tight text-center uppercase text-white/90">{t.settings}</h2>
+            <div className="flex flex-col gap-4 sm:gap-6">
+              <button onClick={() => setGameState(p => ({...p, settings: {...p.settings, language: p.settings.language === 'en' ? 'tr' : 'en'}}))} className="flex justify-between items-center p-6 sm:p-8 bg-white/5 rounded-2xl sm:rounded-3xl border border-white/5 hover:bg-white/10 transition-all">
+                <span className="text-slate-500 font-black uppercase text-[10px] sm:text-xs tracking-widest">{t.language}</span>
+                <span className="font-black uppercase text-indigo-400 text-base sm:text-lg">{gameState.settings.language}</span>
               </button>
-              <button onClick={() => setGameState(p => ({...p, settings: {...p.settings, musicEnabled: !p.settings.musicEnabled}}))} className="flex justify-between items-center p-8 bg-white/5 rounded-3xl border border-white/5 hover:bg-white/10 transition-all">
-                <span className="text-slate-500 font-black uppercase text-xs tracking-widest">{t.music}</span>
-                <span className={`font-black text-lg ${gameState.settings.musicEnabled ? 'text-green-400' : 'text-slate-600'}`}>{gameState.settings.musicEnabled ? 'AÇIK' : 'KAPALI'}</span>
+              <button onClick={() => setGameState(p => ({...p, settings: {...p.settings, musicEnabled: !p.settings.musicEnabled}}))} className="flex justify-between items-center p-6 sm:p-8 bg-white/5 rounded-2xl sm:rounded-3xl border border-white/5 hover:bg-white/10 transition-all">
+                <span className="text-slate-500 font-black uppercase text-[10px] sm:text-xs tracking-widest">{t.music}</span>
+                <span className={`font-black text-base sm:text-lg ${gameState.settings.musicEnabled ? 'text-green-400' : 'text-slate-600'}`}>{gameState.settings.musicEnabled ? t.on : t.off}</span>
               </button>
             </div>
-            <button onClick={() => setView('menu')} className="w-full mt-14 py-6 bg-indigo-600 text-white font-black rounded-3xl hover:bg-indigo-500 transition-all shadow-xl uppercase tracking-[0.2em]">{t.close}</button>
+            <button onClick={() => setView('menu')} className="w-full mt-10 sm:mt-14 py-4 sm:py-6 bg-indigo-600 text-white font-black rounded-2xl sm:rounded-3xl hover:bg-indigo-500 transition-all shadow-xl uppercase tracking-[0.2em]">{t.close}</button>
           </div>
         </div>
       )}
 
       {isGameOver && (
-        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black p-6">
-          <div className="text-center w-full max-w-lg p-16 bg-red-950/10 border border-red-500/30 rounded-[4rem] shadow-2xl backdrop-blur-2xl">
-            <h1 className="text-7xl md:text-8xl font-black text-red-600 mb-8 tracking-tighter uppercase italic drop-shadow-[0_0_30px_rgba(220,38,38,0.5)]">ÖLDÜNÜZ</h1>
-            <p className="text-slate-400 mb-16 font-medium leading-relaxed uppercase text-sm tracking-widest">{t.wildernessReclaimed}</p>
-            <button onClick={restartGame} className="w-full py-7 bg-red-600 text-white font-black rounded-[2.5rem] transition-all shadow-2xl hover:bg-red-500 active:scale-95 uppercase tracking-widest text-xl">{t.tryAgain}</button>
+        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black p-4">
+          <div className="text-center w-full max-w-lg p-10 sm:p-16 bg-red-950/10 border border-red-500/30 rounded-[3rem] sm:rounded-[4rem] shadow-2xl backdrop-blur-2xl">
+            <h1 className="text-5xl sm:text-7xl md:text-8xl font-black text-red-600 mb-6 sm:mb-8 tracking-tighter uppercase italic drop-shadow-[0_0_30px_rgba(220,38,38,0.5)]">{t.youDied}</h1>
+            <p className="text-slate-400 mb-10 sm:16 font-medium leading-relaxed uppercase text-xs sm:text-sm tracking-widest">{t.wildernessReclaimed}</p>
+            <button onClick={restartGame} className="w-full py-5 sm:py-7 bg-red-600 text-white font-black rounded-2xl sm:rounded-[2.5rem] transition-all shadow-2xl hover:bg-red-500 active:scale-95 uppercase tracking-widest text-lg sm:text-xl">{t.tryAgain}</button>
           </div>
         </div>
       )}

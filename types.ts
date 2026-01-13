@@ -1,3 +1,4 @@
+
 export type Language = 'tr' | 'en';
 export type WeatherType = 'sunny' | 'rainy' | 'snowy';
 
@@ -41,4 +42,13 @@ export interface GameState {
 export interface InteractionTarget {
   type: 'tree' | 'appleTree' | 'bush' | 'water' | 'rock' | 'campfire' | 'critter' | 'arrow' | 'none';
   id?: string;
+}
+
+export interface MobileInput {
+  moveX: number;
+  moveY: number;
+  jump: boolean;
+  sprint: boolean;
+  interact: boolean;
+  attack: boolean;
 }

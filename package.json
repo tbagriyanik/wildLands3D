@@ -11,9 +11,7 @@
   "dependencies": {
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "three": "^0.182.0",
-    "this": "^1.1.0",
-    "@google/genai": "^1.35.0"
+    "three": "^0.182.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
