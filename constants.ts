@@ -23,7 +23,7 @@ export const SURVIVAL_DECAY_RATES = {
 export const ITEM_LIMITS = {
   resource: 30,
   food: 10,
-  tool: 10, // Aletlerin (Meşale, Matara vb.) aynı slotta birikmesi için limit artırıldı
+  tool: 1, // Only one of each tool usually
 };
 
 export const COLORS = {
@@ -36,7 +36,6 @@ export const COLORS = {
 
 export const TRANSLATIONS = {
   en: {
-    tagline: "SURVIVE THE UNTAMED",
     newGame: "NEW GAME",
     continue: "CONTINUE",
     settings: "SETTINGS",
@@ -85,8 +84,6 @@ export const TRANSLATIONS = {
     notEnoughTorch: "NEED 1 WOOD, 1 FLINT",
     craftWaterskin: "CRAFT WATERSKIN",
     waterskinReq: "2 Wood",
-    craftHint: "Press 'C' to open Crafting Menu",
-    campfireAdded: "Campfire added!",
     // Standalone Items
     Apple: "Apple",
     Wood: "Wood",
@@ -108,7 +105,6 @@ export const TRANSLATIONS = {
     autoSaved: "GAME AUTO-SAVED"
   },
   tr: {
-    tagline: "VAHŞİ DOĞADA HAYATTA KAL",
     newGame: "YENİ OYUN",
     continue: "DEVAM ET",
     settings: "AYARLAR",
@@ -157,8 +153,6 @@ export const TRANSLATIONS = {
     notEnoughTorch: "1 ODUN, 1 ÇAKMAKTAŞI GEREKLİ",
     craftWaterskin: "MATARA ÜRET",
     waterskinReq: "2 Odun",
-    craftHint: "Üretim menüsünü 'C' tuşu ile açabilirsin",
-    campfireAdded: "Ateş eklendi!",
     // Standalone Items
     Apple: "Elma",
     Wood: "Odun",

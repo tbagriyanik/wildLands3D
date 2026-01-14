@@ -61,44 +61,33 @@ const getInteractionIcon = (type: string): string => {
   }
 };
 
-const StatBar: React.FC<{ label: string, value: number, color: string, pulse?: boolean, icon?: React.ReactNode, unit?: string }> = ({ label, value, color, pulse = false, icon = null, unit = "%" }) => (
+// Properly typed with React.FC to handle standard component props like 'key'
+const StatBar: React.FC<{ label: string, value: number, color: string, pulse?: boolean, icon?: React.ReactNode }> = ({ label, value, color, pulse = false, icon = null }) => (
   <div className={`mb-1.5 w-full group ${pulse ? 'animate-pulse' : ''}`}>
-    <div className="flex justify-between items-center text-[10px] sm:text-[12px] font-black text-black/70 group-hover:text-black transition-colors uppercase tracking-widest mb-0.5 px-0.5">
+    <div className="flex justify-between items-center text-[7px] font-black text-black/70 group-hover:text-black transition-colors uppercase tracking-widest mb-0.5 px-0.5">
       <div className="flex items-center gap-1">{icon}<span>{label}</span></div>
-      <span className="tabular-nums">{Math.round(value)}{unit}</span>
+      <span className="tabular-nums">{Math.round(value)}%</span>
     </div>
-    <div className="w-full h-1.5 bg-black/10 rounded-full overflow-hidden border border-black/5">
-      <div className="h-full transition-all duration-700 ease-out" style={{ width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: color, boxShadow: `0 0 10px ${color}80` }} />
+    <div className="w-full h-1 bg-black/10 rounded-full overflow-hidden border border-black/5">
+      <div className="h-full transition-all duration-700 ease-out" style={{ width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: color, boxShadow: `0 0 8px ${color}60` }} />
     </div>
   </div>
 );
 
-const ResourceIndicator: React.FC<{ item: InventoryItem }> = ({ item }) => {
-  const [pop, setPop] = useState(false);
-  const prevCount = useRef(item.count);
+// Explicitly using React.FC to satisfy TypeScript's requirement for mapped components receiving a 'key'
+const ResourceIndicator: React.FC<{ item: InventoryItem }> = ({ item }) => (
+  <div className="flex items-center justify-between gap-3 bg-white/40 backdrop-blur-md p-2 px-3 rounded-xl border border-white/40 shadow-sm min-w-[80px]">
+    <span className="text-xl">{getItemIcon(item.name)}</span>
+    <span className="text-[11px] font-black text-black tabular-nums">{item.count}</span>
+  </div>
+);
 
-  useEffect(() => {
-    if (item.count !== prevCount.current) {
-      setPop(true);
-      const timer = setTimeout(() => setPop(false), 350);
-      prevCount.current = item.count;
-      return () => clearTimeout(timer);
-    }
-  }, [item.count]);
-
-  return (
-    <div className={`flex items-center justify-between gap-3 bg-white/60 backdrop-blur-md p-2 px-3 rounded-2xl border border-white/40 shadow-xl min-w-[90px] hover:bg-white/80 transition-all duration-300 ${pop ? 'scale-125 border-indigo-500 bg-white shadow-indigo-500/30' : 'scale-100'}`}>
-      <span className="text-2xl">{getItemIcon(item.name)}</span>
-      <span className="text-xs font-black text-black tabular-nums">{item.count}</span>
-    </div>
-  );
-};
-
+// Typed for consistency and type safety
 const CraftItem: React.FC<{ label: string, onClick: () => void, disabled: boolean, icon: string, req: string }> = ({ label, onClick, disabled, icon, req }) => (
-  <div className={`group p-4 rounded-3xl border transition-all flex flex-col items-center text-center gap-1 ${disabled ? 'bg-black/40 border-white/5 opacity-50 grayscale' : 'bg-white/5 border-white/10 hover:bg-white/20 hover:scale-105 cursor-pointer shadow-2xl active:scale-95'}`} onClick={() => !disabled && onClick()}>
-    <span className="text-4xl group-hover:scale-110 transition-transform">{icon}</span>
-    <span className="text-[10px] font-black uppercase tracking-tighter text-white/90">{label}</span>
-    <span className={`text-[8px] font-bold ${disabled ? 'text-red-400' : 'text-emerald-400'}`}>{req}</span>
+  <div className={`group p-4 rounded-2xl border transition-all flex flex-col items-center text-center gap-1 ${disabled ? 'bg-black/40 border-white/5 opacity-50 grayscale' : 'bg-white/5 border-white/10 hover:bg-white/20 hover:scale-105 cursor-pointer shadow-lg active:scale-95'}`} onClick={() => !disabled && onClick()}>
+    <span className="text-3xl group-hover:scale-110 transition-transform">{icon}</span>
+    <span className="text-[9px] font-black uppercase tracking-tighter">{label}</span>
+    <span className={`text-[7px] font-bold ${disabled ? 'text-red-400' : 'text-green-400'}`}>{req}</span>
   </div>
 );
 
@@ -108,22 +97,20 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   const { stats, inventory, time, settings } = gameState;
   const t = TRANSLATIONS[settings.language];
   const joystickRef = useRef<{ startX: number; startY: number; isActive: boolean }>({ startX: 0, startY: 0, isActive: false });
-  const [popId, setPopId] = useState<string | null>(null);
+  const [popItem, setPopItem] = useState<string | null>(null);
 
+  // Split inventory into Usable (Hotbar) and Resources
   const { hotbarItems, resourceItems } = useMemo(() => {
     const usable = inventory.filter(item => item.type === 'food' || item.type === 'tool').slice(0, 9);
     const resources = inventory.filter(item => item.type === 'resource');
     return { hotbarItems: usable, resourceItems: resources };
   }, [inventory]);
 
-  // Eşya pop efekti
   useEffect(() => {
-    if (inventory.length > 0) {
-      const last = inventory[inventory.length - 1];
-      setPopId(last.id);
-      const timeout = setTimeout(() => setPopId(null), 400);
-      return () => clearTimeout(timeout);
-    }
+    const lastItem = inventory[0]?.id;
+    setPopItem(lastItem);
+    const timeout = setTimeout(() => setPopItem(null), 300);
+    return () => clearTimeout(timeout);
   }, [inventory]);
 
   const woodCount = inventory.find(i => i.name === 'Wood')?.count || 0;
@@ -153,90 +140,101 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   };
 
   return (
-    <div className={`absolute inset-0 pointer-events-none z-20 flex flex-col justify-between p-4 sm:p-10 transition-opacity duration-1000 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+    <div className={`absolute inset-0 pointer-events-none z-20 flex flex-col justify-between p-4 sm:p-8 transition-opacity duration-700 ${isVisible ? 'opacity-100' : 'opacity-0'} responsive-ui`}>
       
-      <div className="flex flex-col sm:flex-row justify-between items-center sm:items-start gap-6 w-full">
-        {/* Sol Üst Stats Paneli */}
-        <div className="bg-white/80 backdrop-blur-2xl p-6 sm:p-8 rounded-[2.5rem] border border-white/60 w-full sm:w-72 pointer-events-auto shadow-[0_20px_50px_rgba(0,0,0,0.2)]">
-          <div className="flex justify-between items-center text-lg sm:text-xl text-black font-black mb-6 border-b-4 border-black/10 pb-3">
-             <span className="uppercase tracking-tighter">{t.day} {gameState.day}</span>
-             <span className="bg-indigo-600 px-4 py-1.5 rounded-3xl tabular-nums text-white text-base shadow-lg">{formatTime(time)}</span>
+      {/* Üst Panel: Gün, Pusula, Dil */}
+      <div className="flex flex-col sm:flex-row justify-between items-center sm:items-start gap-4 w-full">
+        <div className="top-left-stats bg-white/60 backdrop-blur-xl p-3 sm:p-4 rounded-[1.2rem] sm:rounded-[1.5rem] border border-white/40 w-full sm:w-44 pointer-events-auto shadow-xl">
+          <div className="flex justify-between items-center text-[9px] sm:text-[10px] text-black font-black mb-2 border-b border-black/10 pb-2">
+             <span>{t.day} {gameState.day}</span>
+             <span className="bg-black/10 px-1.5 py-0.5 rounded-full text-[8px]">{formatTime(time)}</span>
           </div>
           <StatBar label={t.health} value={stats.health} color={COLORS.health} pulse={stats.health < 25} />
           <StatBar label={t.hunger} value={stats.hunger} color={COLORS.hunger} pulse={isHungerCritical} />
           <StatBar label={t.thirst} value={stats.thirst} color={COLORS.thirst} pulse={isThirstCritical} />
-          <StatBar label={t.temp} value={stats.temperature} color={COLORS.temperature} pulse={isWarmingUp} icon={isWarmingUp ? "🔥" : null} unit="°C" />
+          <StatBar label={t.temp} value={stats.temperature} color={COLORS.temperature} pulse={isWarmingUp} icon={isWarmingUp ? "🔥" : null} />
         </div>
 
-        <div className="flex items-center gap-3 pointer-events-auto w-full sm:w-auto justify-center">
-          <div className="relative flex-grow sm:flex-grow-0 w-full sm:w-72 h-12 sm:h-14 bg-white/70 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/50 flex items-center justify-center overflow-hidden shadow-2xl">
-            <div className="absolute w-[400%] flex justify-around text-xs sm:text-sm font-black tracking-[0.5em] text-black" style={{ transform: `translateX(${-((playerRotation * 180 / Math.PI) % 360)}px)` }}>
+        <div className="top-right-controls flex items-center gap-2 pointer-events-auto w-full sm:w-auto justify-center">
+          <div className="relative flex-grow sm:flex-grow-0 w-full sm:w-64 h-10 sm:h-12 bg-white/60 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-white/40 flex items-center justify-center overflow-hidden shadow-xl">
+            <div className="absolute w-[400%] flex justify-around text-[10px] sm:text-[11px] font-black tracking-[0.4em] text-black" style={{ transform: `translateX(${-((playerRotation * 180 / Math.PI) % 360)}px)` }}>
               <span>S</span><span>W</span><span>N</span><span>E</span><span>S</span><span>W</span><span>N</span><span>E</span>
             </div>
-            <div className="absolute w-1 h-6 sm:h-8 bg-indigo-600 z-10 rounded-full" />
+            <div className="absolute w-0.5 h-5 sm:h-6 bg-indigo-600 z-10" />
           </div>
-          <button onClick={onToggleLanguage} className="w-12 h-12 sm:w-14 sm:h-14 bg-white/70 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/50 flex items-center justify-center text-[10px] sm:text-[12px] font-black text-black hover:bg-white active:scale-90 transition-all uppercase tracking-widest shadow-2xl">
+          <button 
+            onClick={onToggleLanguage}
+            className="w-10 h-10 sm:w-12 sm:h-12 bg-white/60 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-white/40 flex items-center justify-center text-[9px] sm:text-[10px] font-black text-black hover:bg-white/40 active:scale-95 transition-all uppercase tracking-widest shadow-xl"
+          >
             {settings.language}
           </button>
         </div>
       </div>
 
-      <div className="absolute right-6 top-1/2 -translate-y-1/2 flex flex-col gap-3 pointer-events-auto">
-        <div className="bg-white/30 backdrop-blur-3xl p-3 rounded-[2rem] border border-white/40 flex flex-col gap-3 shadow-2xl">
+      {/* Sağ Panel: Kaynaklar (Odun, Taş, Ok vb.) */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 pointer-events-auto">
+        <div className="bg-white/30 backdrop-blur-xl p-2 rounded-2xl border border-white/40 flex flex-col gap-2 shadow-lg">
           {resourceItems.length > 0 ? resourceItems.map(item => (
             <ResourceIndicator key={item.id} item={item} />
           )) : (
-            <div className="text-[10px] text-black/50 font-black p-4 uppercase text-center italic">Envanter Boş</div>
+            <div className="text-[8px] text-black/40 font-black p-2 uppercase text-center">Boş</div>
           )}
         </div>
       </div>
 
+      {/* Orta Etkileşim İkonu */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10">
-        <div className={`transition-all duration-500 ${interaction.type !== 'none' ? 'scale-125 sm:scale-150' : 'scale-100 opacity-20'}`}>
-          <div className={`relative flex items-center justify-center transition-all ${interaction.type !== 'none' ? 'w-16 h-16 sm:w-20 sm:h-20 bg-white/20 rounded-full border border-white/50 shadow-2xl' : 'w-2 h-2 sm:w-3 sm:h-3 bg-white/80 rounded-full'}`}>
-            <span className={`text-2xl sm:text-3xl drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] ${interaction.type !== 'none' ? 'opacity-100' : 'opacity-0'}`}>{getInteractionIcon(interaction.type)}</span>
+        <div className={`transition-all duration-300 ${interaction.type !== 'none' ? 'scale-125 sm:scale-150' : 'scale-100'}`}>
+          <div className={`relative flex items-center justify-center transition-all ${interaction.type !== 'none' ? 'w-12 h-12 sm:w-16 sm:h-16 bg-white/10 rounded-full border border-white/40 shadow-lg' : 'w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white/60 rounded-full'}`}>
+            <span className={`text-xl sm:text-2xl drop-shadow-2xl ${interaction.type !== 'none' ? 'opacity-100' : 'opacity-0'}`}>{getInteractionIcon(interaction.type)}</span>
           </div>
           {interaction.type !== 'none' && (
-            <div className="mt-4 bg-indigo-600/90 backdrop-blur-xl px-5 py-2.5 rounded-2xl text-[10px] sm:text-[12px] font-black uppercase tracking-widest animate-in slide-in-from-bottom-4 shadow-2xl text-white border border-white/20">
+            <div className="mt-3 bg-indigo-600/90 backdrop-blur-md px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[8px] sm:text-[10px] font-black uppercase tracking-widest animate-in slide-in-from-bottom-2 shadow-2xl text-white">
               {t[interaction.type as keyof typeof t] || interaction.type}
             </div>
           )}
         </div>
       </div>
 
-      <div className="flex flex-col items-center gap-6 sm:gap-8 w-full">
+      {/* Alt Panel: Joystick ve Hotbar (Kullanılabilir Eşyalar 1-9) */}
+      <div className="flex flex-col items-center gap-4 sm:gap-6 w-full">
         {isMobile && (
-          <div className="w-full flex justify-between px-6 sm:px-12 items-end pointer-events-none mb-4">
-            <div className="w-32 h-32 sm:w-40 sm:h-40 bg-white/10 backdrop-blur-2xl rounded-full border border-white/20 pointer-events-auto flex items-center justify-center shadow-2xl" onTouchStart={handleJoystickStart} onTouchMove={handleJoystickMove} onTouchEnd={handleJoystickEnd}>
-               <div className="w-12 h-12 sm:w-16 sm:h-16 bg-indigo-500/40 rounded-full border border-indigo-400/50 shadow-inner" />
+          <div className="mobile-controls-row w-full flex justify-between px-4 sm:px-8 items-end pointer-events-none mb-2">
+            <div className="joystick-container w-28 h-28 sm:w-36 sm:h-36 bg-white/10 backdrop-blur-xl rounded-full border border-white/20 pointer-events-auto flex items-center justify-center shadow-2xl" onTouchStart={handleJoystickStart} onTouchMove={handleJoystickMove} onTouchEnd={handleJoystickEnd}>
+               <div className="w-10 h-10 sm:w-14 sm:h-14 bg-indigo-500/40 rounded-full border border-indigo-400/50" />
             </div>
-            <div className="flex flex-col gap-4 sm:gap-6 pointer-events-auto">
-               <button onClick={() => setIsCraftingOpen(true)} className="w-16 h-16 sm:w-24 sm:h-24 bg-amber-500/90 backdrop-blur-xl rounded-3xl text-3xl sm:text-4xl flex items-center justify-center active:scale-90 shadow-2xl border border-white/20">🛠️</button>
-               <button onTouchStart={() => onMobileInput(prev => ({ ...prev, jump: true }))} onTouchEnd={() => onMobileInput(prev => ({ ...prev, jump: false }))} className="w-18 h-18 sm:w-28 sm:h-28 bg-indigo-600/90 backdrop-blur-xl rounded-full text-3xl sm:text-4xl flex items-center justify-center active:scale-90 shadow-2xl border border-white/20">⬆️</button>
+            <div className="mobile-buttons flex flex-col gap-3 sm:gap-4 pointer-events-auto">
+               <button onClick={() => setIsCraftingOpen(true)} className="w-14 h-14 sm:w-20 sm:h-20 bg-amber-500/90 backdrop-blur-md rounded-2xl sm:rounded-3xl text-2xl sm:text-3xl flex items-center justify-center active:scale-90 shadow-xl border border-white/20">🛠️</button>
+               <button onTouchStart={() => onMobileInput(prev => ({ ...prev, jump: true }))} onTouchEnd={() => onMobileInput(prev => ({ ...prev, jump: false }))} className="w-16 h-16 sm:w-24 sm:h-24 bg-indigo-600/90 backdrop-blur-md rounded-full text-2xl sm:text-3xl flex items-center justify-center active:scale-90 shadow-xl border border-white/20">⬆️</button>
             </div>
           </div>
         )}
 
-        <div className="bg-white/40 backdrop-blur-2xl p-3 sm:p-5 rounded-[2.5rem] border border-white/50 flex gap-3 sm:gap-5 pointer-events-auto overflow-x-auto no-scrollbar max-w-full sm:max-w-[85vw] shadow-[0_30px_60px_rgba(0,0,0,0.3)]">
+        {/* Hotbar (Food/Tools) */}
+        <div className="hotbar-container bg-white/40 backdrop-blur-xl p-2 sm:p-3 rounded-[1.5rem] sm:rounded-[2rem] border border-white/50 flex gap-2 sm:gap-3 pointer-events-auto overflow-x-auto no-scrollbar max-w-full sm:max-w-[90vw] shadow-2xl">
           {hotbarItems.map((item, index) => (
-            <button key={item.id} onClick={() => onUseItem(item.id)} className={`relative min-w-[64px] sm:min-w-[80px] h-[64px] sm:h-[80px] rounded-2xl sm:rounded-3xl border transition-all duration-500 flex items-center justify-center text-3xl sm:text-4xl ${activeToolId === item.id ? 'bg-indigo-600/60 border-indigo-400 shadow-[0_0_25px_rgba(79,70,229,0.5)] scale-110' : 'bg-white/20 border-white/30'} ${popId === item.id ? 'scale-125 border-emerald-400 shadow-emerald-500/30' : 'scale-100'} hover:bg-white/40 group active:scale-95`}>
-              <span className="absolute top-1.5 left-2.5 text-[10px] sm:text-[12px] font-black text-black/30 group-hover:text-black/80 transition-colors uppercase tracking-widest">{index + 1}</span>
+            <button 
+              key={item.id} 
+              onClick={() => onUseItem(item.id)} 
+              className={`relative min-w-[54px] sm:min-w-[68px] h-[54px] sm:h-[68px] rounded-xl sm:rounded-2xl border transition-all duration-300 flex items-center justify-center text-2xl sm:text-3xl ${activeToolId === item.id ? 'bg-indigo-500/60 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-white/20 border-white/30'} ${popItem === item.id ? 'scale-110 sm:scale-125' : 'scale-100'} hover:bg-white/40 group`}
+            >
+              <span className="absolute top-1 left-2 text-[8px] sm:text-[10px] font-black text-black/30 group-hover:text-black/80 transition-colors uppercase tracking-widest">{index + 1}</span>
               {getItemIcon(item.name)}
-              <span className={`absolute -bottom-2 -right-2 sm:-bottom-3 sm:-right-3 bg-indigo-700 text-[10px] sm:text-[12px] font-black min-w-[22px] sm:min-w-[28px] h-[22px] sm:h-[28px] rounded-xl flex items-center justify-center border-2 border-white shadow-xl text-white transition-all duration-300 ${popId === item.id ? 'scale-150 rotate-12' : 'scale-100'}`}>{item.count}</span>
+              <span className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 bg-indigo-600 text-[9px] sm:text-[11px] font-black min-w-[18px] sm:min-w-[22px] h-[18px] sm:h-[22px] rounded-lg sm:rounded-xl flex items-center justify-center border border-white/10 shadow-lg text-white">{item.count}</span>
             </button>
           ))}
-          {hotbarItems.length === 0 && <span className="px-8 sm:px-12 py-4 sm:py-6 text-black/30 font-black italic tracking-[0.2em] text-xs sm:text-base uppercase whitespace-nowrap">Ekipman Yok</span>}
+          {hotbarItems.length === 0 && <span className="px-4 sm:px-6 py-3 sm:py-4 text-black/20 font-black italic tracking-widest text-[10px] sm:text-sm uppercase whitespace-nowrap">Hotbar Boş</span>}
         </div>
       </div>
 
       {isCraftingOpen && (
-        <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-3xl flex items-center justify-center pointer-events-auto z-50 animate-in fade-in duration-500 p-4">
-          <div className="bg-slate-900/40 p-10 sm:p-14 rounded-[3.5rem] border border-white/10 w-full max-w-[45rem] shadow-[0_0_100px_rgba(99,102,241,0.2)] overflow-hidden relative max-h-[95vh] overflow-y-auto custom-scrollbar">
-            <div className="flex justify-between items-center mb-10 sm:mb-14">
-              <h2 className="text-3xl sm:text-5xl font-black italic tracking-tighter text-indigo-400 uppercase drop-shadow-[0_0_20px_rgba(99,102,241,0.5)]">ÜRETİM</h2>
-              <button onClick={() => setIsCraftingOpen(false)} className="text-4xl sm:text-6xl font-thin hover:text-red-500 hover:rotate-90 transition-all duration-500">×</button>
+        <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-3xl flex items-center justify-center pointer-events-auto z-50 animate-in fade-in p-4">
+          <div className="bg-slate-900/60 p-6 sm:p-10 rounded-[2rem] sm:rounded-[3rem] border border-white/10 w-full max-w-[40rem] shadow-2xl overflow-hidden relative max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div className="flex justify-between items-center mb-6 sm:mb-10">
+              <h2 className="text-2xl sm:text-3xl font-black italic tracking-tighter text-indigo-400 uppercase">ÜRETİM</h2>
+              <button onClick={() => setIsCraftingOpen(false)} className="text-3xl sm:text-4xl font-bold hover:text-red-500 transition-colors">×</button>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-5 sm:gap-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
               <CraftItem label={t.campfire} icon="🔥" req="3 Wood, 1 Flint" disabled={!canCraftCampfire} onClick={() => onCraft('campfire')} />
               <CraftItem label={t.Arrow} icon="🏹" req="1 Wood (5x)" disabled={!canCraftArrow} onClick={() => onCraft('arrows')} />
               <CraftItem label={t.Bow} icon="🏹" req="3 Wood" disabled={!canCraftBow} onClick={() => onCraft('bow')} />
@@ -246,6 +244,25 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
           </div>
         </div>
       )}
+      
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        
+        /* Mobil Oryantasyon Uyumluluğu */
+        @media (orientation: portrait) {
+          .top-left-stats { width: 100% !important; max-width: 250px; }
+          .top-right-controls { width: 100% !important; margin-top: 0.5rem; }
+        }
+        
+        @media (max-width: 640px) {
+          .responsive-ui { padding: 1rem !important; }
+        }
+        
+        @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
+      `}</style>
     </div>
   );
 };
