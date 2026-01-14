@@ -61,8 +61,8 @@ const getInteractionIcon = (type: string): string => {
   }
 };
 
-// Moved outside to fix TypeScript "key" prop errors and improve performance
-const StatBar = ({ label, value, color, pulse = false, icon = null }: { label: string, value: number, color: string, pulse?: boolean, icon?: React.ReactNode }) => (
+// Properly typed with React.FC to handle standard component props like 'key'
+const StatBar: React.FC<{ label: string, value: number, color: string, pulse?: boolean, icon?: React.ReactNode }> = ({ label, value, color, pulse = false, icon = null }) => (
   <div className={`mb-1.5 w-full group ${pulse ? 'animate-pulse' : ''}`}>
     <div className="flex justify-between items-center text-[7px] font-black text-black/70 group-hover:text-black transition-colors uppercase tracking-widest mb-0.5 px-0.5">
       <div className="flex items-center gap-1">{icon}<span>{label}</span></div>
@@ -74,16 +74,16 @@ const StatBar = ({ label, value, color, pulse = false, icon = null }: { label: s
   </div>
 );
 
-// Fixed the key issue by properly typing and moving the sub-component outside
-const ResourceIndicator = ({ item }: { item: InventoryItem }) => (
+// Explicitly using React.FC to satisfy TypeScript's requirement for mapped components receiving a 'key'
+const ResourceIndicator: React.FC<{ item: InventoryItem }> = ({ item }) => (
   <div className="flex items-center justify-between gap-3 bg-white/40 backdrop-blur-md p-2 px-3 rounded-xl border border-white/40 shadow-sm min-w-[80px]">
     <span className="text-xl">{getItemIcon(item.name)}</span>
     <span className="text-[11px] font-black text-black tabular-nums">{item.count}</span>
   </div>
 );
 
-// Moved outside for better structure
-const CraftItem = ({ label, onClick, disabled, icon, req }: { label: string, onClick: () => void, disabled: boolean, icon: string, req: string }) => (
+// Typed for consistency and type safety
+const CraftItem: React.FC<{ label: string, onClick: () => void, disabled: boolean, icon: string, req: string }> = ({ label, onClick, disabled, icon, req }) => (
   <div className={`group p-4 rounded-2xl border transition-all flex flex-col items-center text-center gap-1 ${disabled ? 'bg-black/40 border-white/5 opacity-50 grayscale' : 'bg-white/5 border-white/10 hover:bg-white/20 hover:scale-105 cursor-pointer shadow-lg active:scale-95'}`} onClick={() => !disabled && onClick()}>
     <span className="text-3xl group-hover:scale-110 transition-transform">{icon}</span>
     <span className="text-[9px] font-black uppercase tracking-tighter">{label}</span>

@@ -1,14 +1,10 @@
 
 import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import * as THREE from 'this';
-import * as THREE_CORE from 'three';
+import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import { Sky } from 'three/examples/jsm/objects/Sky';
 import { InteractionTarget, WeatherType, CampfireData, MobileInput } from '../types';
 import { SFX_URLS } from '../constants';
-
-// Note: Using THREE_CORE to avoid ESM import issues with some re-exports if any
-const THREE = THREE_CORE;
 
 interface GameSceneProps {
   onInteract: (target: InteractionTarget) => void;
@@ -277,10 +273,26 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     });
 
     const interactionRaycaster = new THREE.Raycaster();
+    
+    // Ambient sound manager
+    let nextAmbientTime = Date.now() + 10000 + Math.random() * 20000;
+    
     const animate = () => {
         requestAnimationFrame(animate);
         const delta = 0.016;
-        const { isMobile, mobileInput, isLocked, isCraftingOpen, time } = propsRef.current;
+        const now = Date.now();
+        const { isMobile, mobileInput, isLocked, isCraftingOpen, time, sfxEnabled } = propsRef.current;
+        
+        // Periodic ambient wildlife sounds
+        if (now > nextAmbientTime) {
+          const isDay = time > 500 && time < 1900;
+          if (isDay) {
+            const ambientUrl = Math.random() > 0.4 ? SFX_URLS.bird_ambient : SFX_URLS.squirrel_ambient;
+            playSFX(ambientUrl, 0.2 + Math.random() * 0.2);
+          }
+          nextAmbientTime = now + 15000 + Math.random() * 30000;
+        }
+
         if (isLocked && cameraRef.current) {
           interactionRaycaster.setFromCamera(new THREE.Vector2(0,0), cameraRef.current);
           const iTs = [...worldObjectsRef.current, ...campfireGroupRef.current.children, ...critterGroupRef.current.children].filter(o => o.visible && o.position.distanceTo(cameraRef.current!.position) < 10);
