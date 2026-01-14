@@ -27,7 +27,35 @@ interface DeltaIndicator {
   id: string;
   amount: number;
   itemName: string; 
+  icon: string;
 }
+
+const getItemIcon = (name: string): string => {
+  switch (name) {
+    case 'Wood': return '🪵';
+    case 'Berries': return '🍒';
+    case 'Apple': return '🍎';
+    case 'Stone': return '🪨';
+    case 'Flint Stone': return '🔥';
+    case 'Raw Meat': return '🥩';
+    case 'Cooked Meat': return '🍖';
+    case 'Arrow': return '🏹';
+    case 'Bow': return '🏹';
+    case 'Torch': return '🔦';
+    case 'Roasted Apple': return '🍎';
+    case 'Cooked Berries': return '🍒';
+    default: return '📦';
+  }
+};
+
+const MouseIcon = ({ active }: { active: boolean }) => (
+  <svg viewBox="0 0 24 24" fill="none" className={`w-6 h-6 transition-all duration-300 ${active ? 'scale-110 drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'opacity-40'}`}>
+    <path d="M12 2C8.686 2 6 4.686 6 8v8c0 3.314 2.686 6 6 6s6-2.686 6-6V8c0-3.314-2.686-6-6-6z" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M12 2v6m-6 0h12" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M12 5v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={active ? "animate-pulse" : ""} />
+    {active && <rect x="6" y="2" width="6" height="6" fill="currentColor" fillOpacity="0.3" rx="3" />}
+  </svg>
+);
 
 const ArrowIconSVG = () => (
   <svg viewBox="0 0 100 100" className="w-full h-full">
@@ -48,7 +76,7 @@ const Compass: React.FC<{ rotation: number }> = ({ rotation }) => {
   ];
 
   return (
-    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-48 sm:w-64 h-10 bg-black/60 backdrop-blur-md rounded-full border border-white/20 overflow-hidden pointer-events-none flex items-center justify-center shadow-2xl">
+    <div className="absolute top-[env(safe-area-inset-top,8px)] left-1/2 -translate-x-1/2 w-48 sm:w-64 h-10 bg-black/60 backdrop-blur-md rounded-full border border-white/20 overflow-hidden pointer-events-none flex items-center justify-center shadow-2xl">
       <div className="relative w-full h-full flex items-center transition-transform duration-150 ease-out" style={{ transform: `translateX(${-degree * 0.8}px)` }}>
         {[-360, 0, 360].map(offset => (
           <React.Fragment key={offset}>
@@ -71,7 +99,6 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
 }) => {
   const { stats, inventory, time, settings, campfires } = gameState;
   const t = TRANSLATIONS[settings.language];
-  const [cookingProgress, setCookingProgress] = useState(0);
   const [deltas, setDeltas] = useState<DeltaIndicator[]>([]);
   const [pulseItems, setPulseItems] = useState<Record<string, boolean>>({});
   const prevInventoryRef = useRef<InventoryItem[]>([]);
@@ -133,16 +160,29 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         newDeltas.push({
           id: Math.random().toString(36).substr(2, 9),
           itemName: item.name,
-          amount: item.count - prevCount
+          amount: item.count - prevCount,
+          icon: getItemIcon(item.name)
         });
         newPulses[item.name] = true;
+      }
+    });
+
+    prevInventoryRef.current.forEach(prevItem => {
+      const currentItem = inventory.find(i => i.name === prevItem.name);
+      if (!currentItem) {
+        newDeltas.push({
+          id: Math.random().toString(36).substr(2, 9),
+          itemName: prevItem.name,
+          amount: -prevItem.count,
+          icon: getItemIcon(prevItem.name)
+        });
       }
     });
 
     if (newDeltas.length > 0) {
       setDeltas(prev => [...prev, ...newDeltas]);
       setPulseItems(prev => ({ ...prev, ...newPulses }));
-      setTimeout(() => setDeltas(prev => prev.filter(d => !newDeltas.find(nd => nd.id === d.id))), 1500);
+      setTimeout(() => setDeltas(prev => prev.filter(d => !newDeltas.find(nd => nd.id === d.id))), 2000);
       setTimeout(() => setPulseItems(prev => {
           const updated = { ...prev };
           Object.keys(newPulses).forEach(k => delete updated[k]);
@@ -154,12 +194,13 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
 
   const woodCount = inventory.find(i => i.name === 'Wood')?.count || 0;
   const flintCount = inventory.find(i => i.name === 'Flint Stone')?.count || 0;
-  const rawMeatCount = inventory.find(i => i.name === 'Raw Meat')?.count || 0;
   
   const canCraftCampfire = woodCount >= 3 && flintCount >= 1;
   const canCraftArrow = woodCount >= 1;
   const canCraftBow = !inventory.some(i => i.name === 'Bow') && woodCount >= 3;
   const canCraftTorch = !inventory.some(i => i.name === 'Torch') && woodCount >= 1 && flintCount >= 1;
+
+  const hasCookableItem = inventory.some(i => ['Raw Meat', 'Apple', 'Berries'].includes(i.name));
 
   const formatTime = (t: number) => {
     const hours = Math.floor(t / 100);
@@ -169,11 +210,11 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
 
   const StatBar = ({ label, value, color, unit = "%", pulse = false, flicker = false, glow = false }: { label: string, value: number, color: string, unit?: string, pulse?: boolean, flicker?: boolean, glow?: boolean }) => (
     <div className={`mb-2 w-full ${pulse ? 'animate-pulse' : ''} ${flicker ? 'animate-weak-flicker' : ''}`}>
-      <div className="flex justify-between items-center text-[10px] font-black text-white/90 uppercase tracking-widest mb-1 px-1">
+      <div className="flex justify-between items-center text-[11px] sm:text-[10px] font-black text-white/90 uppercase tracking-widest mb-1 px-1">
         <span>{label}</span>
         <span>{Math.round(value)}{unit}</span>
       </div>
-      <div className={`w-full h-1.5 bg-black/60 rounded-full overflow-hidden border border-white/5 shadow-inner ${glow ? `shadow-[0_0_8px_rgba(255,255,255,0.4)]` : ''}`}>
+      <div className={`w-full h-2 sm:h-1.5 bg-black/60 rounded-full overflow-hidden border border-white/5 shadow-inner ${glow ? `shadow-[0_0_8px_rgba(255,255,255,0.4)]` : ''}`}>
         <div className={`h-full transition-all duration-500 ease-out`} style={{ width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: color }} />
       </div>
     </div>
@@ -183,17 +224,17 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
     <button 
       onClick={onClick}
       disabled={disabled}
-      className={`flex items-center justify-between w-full p-2 rounded-xl border transition-all mb-1 ${
+      className={`flex items-center justify-between w-full p-3 sm:p-2 rounded-xl border transition-all mb-2 sm:mb-1 ${
         disabled 
         ? 'bg-black/40 border-white/5 text-white/20' 
-        : 'bg-white/5 border-white/10 hover:bg-white/15 text-white'
+        : 'bg-white/5 border-white/10 hover:bg-white/15 text-white active:bg-white/20'
       }`}
     >
-      <div className="flex items-center gap-2">
-        <span className="w-5 h-5 flex items-center justify-center">{icon}</span>
-        <span className="text-[10px] font-black uppercase tracking-tighter">{label}</span>
+      <div className="flex items-center gap-3 sm:gap-2">
+        <span className="w-6 h-6 sm:w-5 sm:h-5 flex items-center justify-center text-lg sm:text-base">{icon}</span>
+        <span className="text-xs sm:text-[10px] font-black uppercase tracking-tighter">{label}</span>
       </div>
-      <span className="text-[8px] opacity-30 font-bold">{hotkey}</span>
+      {!isMobile && <span className="text-[8px] opacity-30 font-bold">{hotkey}</span>}
     </button>
   );
 
@@ -210,8 +251,17 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
     }
   })();
 
+  const interactionLabel = (() => {
+    if (interaction.type === 'campfire' && hasCookableItem) {
+      return settings.language === 'tr' ? 'YEMEK PİŞİR' : 'COOK FOOD';
+    }
+    return t[interaction.type as keyof typeof t] || interaction.type;
+  })();
+
+  const showInteraction = interaction.type !== 'none' || cookingItem;
+
   return (
-    <div className={`absolute inset-0 pointer-events-none flex flex-col justify-between p-4 z-20 transition-opacity duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+    <div className={`absolute inset-0 pointer-events-none flex flex-col justify-between p-4 z-20 transition-opacity duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'} pb-[env(safe-area-inset-bottom,16px)] pt-[env(safe-area-inset-top,16px)] pl-[env(safe-area-inset-left,16px)] pr-[env(safe-area-inset-right,16px)]`}>
       
       {isHungerCritical && <div className="absolute inset-0 z-50 pointer-events-none shadow-[inset_0_0_100px_rgba(153,27,27,0.5)] animate-pulse" />}
       {isThirstCritical && <div className="absolute inset-0 z-50 pointer-events-none shadow-[inset_0_0_100px_rgba(30,58,138,0.5)] animate-pulse" />}
@@ -219,21 +269,36 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
       <Compass rotation={playerRotation} />
 
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
-          <div className={`relative flex items-center justify-center transition-all duration-300 ${interaction.type !== 'none' || cookingItem ? 'scale-125' : 'scale-100'}`}>
-            <div className={`w-1 h-1 rounded-full bg-white transition-opacity ${interaction.type !== 'none' || cookingItem ? 'opacity-0' : 'opacity-50'}`} />
+          <div className={`relative flex items-center justify-center transition-all duration-300 ${showInteraction ? 'scale-125' : 'scale-100'}`}>
+            <div className={`w-1 h-1 rounded-full bg-white transition-opacity ${showInteraction ? 'opacity-0' : 'opacity-50'}`} />
             
-            <div className={`absolute transition-all duration-200 flex flex-col items-center ${interaction.type !== 'none' || cookingItem ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-               <div className="text-2xl mb-1 drop-shadow-lg">{cookingItem ? '🍳' : interactionIcon}</div>
-               <div className="text-[10px] font-black text-white uppercase bg-indigo-600 px-3 py-1 rounded shadow-lg">
-                 {cookingItem ? t.campfire : (t[interaction.type as keyof typeof t] || interaction.type)}
+            <div className={`absolute transition-all duration-500 flex flex-col items-center ${showInteraction ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+               <div className="text-4xl sm:text-3xl mb-3 sm:mb-2 drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)] animate-bounce-short">
+                 {cookingItem ? '🔥' : interactionIcon}
+               </div>
+               
+               <div className="flex flex-col items-center gap-1">
+                 <div className="flex items-center gap-3 sm:gap-2 bg-black/80 backdrop-blur-md px-5 py-3 sm:px-4 sm:py-2 rounded-2xl border border-white/20 shadow-2xl">
+                    {!isMobile && <MouseIcon active={!!showInteraction} />}
+                    <div className="flex flex-col">
+                      <span className="text-xs sm:text-[11px] font-black text-white uppercase tracking-wider leading-none">
+                        {cookingItem ? (settings.language === 'tr' ? `PİŞİRİLİYOR: ${cookingItem}` : `COOKING: ${cookingItem}`) : interactionLabel}
+                      </span>
+                      {!cookingItem && (
+                        <span className="text-[9px] sm:text-[8px] font-bold text-indigo-400 uppercase tracking-tighter mt-1.5 sm:mt-1">
+                          {isMobile ? (settings.language === 'tr' ? 'DOKUN' : 'TAP') : (settings.language === 'tr' ? 'SOL TIKLA' : 'LEFT CLICK')}
+                        </span>
+                      )}
+                    </div>
+                 </div>
                </div>
             </div>
           </div>
       </div>
 
       <div className="flex flex-col gap-3 items-start">
-        <div className="bg-black/70 backdrop-blur-xl p-3 rounded-xl border border-white/10 w-40 shadow-xl pointer-events-auto">
-          <div className="flex justify-between items-center text-[10px] text-indigo-400 font-black mb-2 border-b border-white/5 pb-1">
+        <div className="bg-black/70 backdrop-blur-xl p-4 sm:p-3 rounded-xl border border-white/10 w-44 sm:w-40 shadow-xl pointer-events-auto">
+          <div className="flex justify-between items-center text-[11px] sm:text-[10px] text-indigo-400 font-black mb-3 sm:mb-2 border-b border-white/5 pb-1.5 sm:pb-1">
              <span>{t.day} {gameState.day}</span>
              <span>{formatTime(time)}</span>
           </div>
@@ -245,10 +310,10 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         </div>
 
         <div className={`transition-all duration-300 pointer-events-auto flex flex-col items-start ${isCraftingOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'}`}>
-          <div className="bg-slate-900/80 backdrop-blur-xl p-3 rounded-xl border border-white/10 w-48 shadow-2xl">
-             <div className="flex justify-between items-center mb-2 px-1">
-               <h3 className="text-[10px] font-black uppercase tracking-widest text-orange-400">{t.craft}</h3>
-               <button onClick={() => setIsCraftingOpen(false)} className="text-white/30 text-xs">×</button>
+          <div className="bg-slate-900/80 backdrop-blur-xl p-4 sm:p-3 rounded-xl border border-white/10 w-52 sm:w-48 shadow-2xl">
+             <div className="flex justify-between items-center mb-3 sm:mb-2 px-1">
+               <h3 className="text-xs sm:text-[10px] font-black uppercase tracking-widest text-orange-400">{t.craft}</h3>
+               <button onClick={() => setIsCraftingOpen(false)} className="text-white/30 text-xl sm:text-xs">×</button>
              </div>
              <CraftButton label={t.campfire} onClick={() => onCraft('campfire')} disabled={!canCraftCampfire} icon="🔥" hotkey="F" />
              <CraftButton label={t.Arrow} onClick={() => onCraft('arrows')} disabled={!canCraftArrow} icon={<ArrowIconSVG />} hotkey="X" />
@@ -260,38 +325,67 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
 
       {isMobile && (
         <div className="absolute inset-0 pointer-events-none z-30">
-          <div className="absolute bottom-6 left-6 w-20 h-20 bg-white/5 backdrop-blur-md rounded-full border border-white/20 flex items-center justify-center pointer-events-auto shadow-2xl" onTouchStart={handleJoystickStart} onTouchMove={handleJoystickMove} onTouchEnd={handleJoystickEnd}>
-            <div className="w-6 h-6 bg-indigo-500 rounded-full border border-white shadow-lg" />
+          <div className="absolute bottom-10 left-10 w-24 h-24 bg-white/5 backdrop-blur-md rounded-full border border-white/20 flex items-center justify-center pointer-events-auto shadow-2xl" onTouchStart={handleJoystickStart} onTouchMove={handleJoystickMove} onTouchEnd={handleJoystickEnd}>
+            <div className="w-8 h-8 bg-indigo-500 rounded-full border border-white shadow-lg" />
           </div>
-          <div className="absolute bottom-6 right-6 w-20 h-20 bg-white/5 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center pointer-events-auto shadow-2xl" onTouchStart={handleLookStart} onTouchMove={handleLookMove} onTouchEnd={handleLookEnd}>
-            <span className="text-[8px] font-black text-white/30">{t.look}</span>
+          <div className="absolute bottom-10 right-10 w-24 h-24 bg-white/5 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center pointer-events-auto shadow-2xl" onTouchStart={handleLookStart} onTouchMove={handleLookMove} onTouchEnd={handleLookEnd}>
+            <span className="text-[10px] font-black text-white/30 uppercase tracking-widest">{t.look}</span>
           </div>
-          <button onClick={() => setIsCraftingOpen(!isCraftingOpen)} className="absolute bottom-28 left-6 w-10 h-10 bg-orange-600 rounded-lg pointer-events-auto shadow-xl text-lg flex items-center justify-center">🛠️</button>
+          <button onClick={() => setIsCraftingOpen(!isCraftingOpen)} className="absolute bottom-40 left-10 w-12 h-12 bg-orange-600 rounded-xl pointer-events-auto shadow-xl text-xl flex items-center justify-center active:scale-90 transition-transform">🛠️</button>
         </div>
       )}
 
-      <div className="flex flex-col gap-2 z-10 w-full items-center mb-2">
-        <div className="bg-black/70 backdrop-blur-xl p-1.5 rounded-xl border border-white/5 flex gap-1 max-w-[95vw] overflow-x-auto no-scrollbar pointer-events-auto shadow-2xl">
+      <div className="absolute bottom-28 sm:bottom-24 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 sm:gap-1 pointer-events-none">
+        {deltas.map(d => (
+          <div key={d.id} className={`flex items-center gap-3 sm:gap-2 px-4 py-2 sm:px-3 sm:py-1 rounded-full bg-black/80 border border-white/10 shadow-2xl animate-float-up-fade`}>
+            <span className="text-xl sm:text-lg">{d.icon}</span>
+            <span className={`text-sm sm:text-xs font-black ${d.amount > 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {d.amount > 0 ? '+' : ''}{d.amount}
+            </span>
+            <span className="text-[11px] sm:text-[10px] font-bold text-white uppercase tracking-tighter opacity-80">{d.itemName}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-2 z-10 w-full items-center mb-2 sm:mb-2">
+        <div className="bg-black/70 backdrop-blur-xl p-2 sm:p-1.5 rounded-2xl sm:rounded-xl border border-white/5 flex gap-2 sm:gap-1 max-w-[95vw] overflow-x-auto no-scrollbar pointer-events-auto shadow-2xl">
           {inventory.map((item, index) => (
-            <button key={item.id} onClick={() => onUseItem(item.id)} className={`relative min-w-[44px] h-[44px] bg-white/5 hover:bg-white/10 rounded-lg border transition-all flex flex-col items-center justify-center ${activeToolId === item.id ? 'border-indigo-500 bg-indigo-500/20' : 'border-white/5'} ${pulseItems[item.name] ? 'animate-bounce border-indigo-400' : ''}`}>
+            <button 
+              key={item.id} 
+              onClick={() => onUseItem(item.id)} 
+              className={`relative min-w-[54px] h-[54px] sm:min-w-[44px] sm:h-[44px] bg-white/5 hover:bg-white/10 active:bg-white/20 rounded-xl sm:rounded-lg border transition-all flex flex-col items-center justify-center ${activeToolId === item.id ? 'border-indigo-500 bg-indigo-500/20' : 'border-white/5'} ${pulseItems[item.name] ? 'animate-bounce-custom border-indigo-400' : ''}`}
+            >
               {!isMobile && index < 9 && <span className="absolute top-0 left-0.5 text-[8px] font-black text-indigo-400 opacity-50">{index + 1}</span>}
-              <span className="text-xl sm:text-2xl">
-                {item.name === 'Wood' && '🪵'} {item.name === 'Berries' && '🍒'}
-                {item.name === 'Apple' && '🍎'} {item.name === 'Stone' && '🪨'}
-                {item.name === 'Flint Stone' && '🔥'} {item.name === 'Raw Meat' && '🥩'}
-                {item.name === 'Cooked Meat' && '🍖'} {item.name === 'Arrow' && '🏹'}
-                {item.name === 'Bow' && '🏹'} {item.name === 'Torch' && '🔦'}
+              <span className="text-2xl sm:text-2xl">
+                {getItemIcon(item.name)}
               </span>
-              <span className="absolute -top-1 -right-1 bg-indigo-600 text-[8px] font-black w-4 h-4 flex items-center justify-center rounded-md">{item.count}</span>
+              <span className="absolute -top-1.5 -right-1.5 sm:-top-1 sm:-right-1 bg-indigo-600 text-[10px] sm:text-[8px] font-black min-w-[1.2rem] h-5 sm:min-w-[1rem] sm:h-4 px-1 flex items-center justify-center rounded-lg sm:rounded-md shadow-lg border border-white/10">
+                {item.count}
+              </span>
             </button>
           ))}
         </div>
       </div>
       
       <style>{`
-        @keyframes bounce-gentle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+        @keyframes float-up-fade {
+          0% { transform: translateY(20px); opacity: 0; }
+          20% { transform: translateY(0); opacity: 1; }
+          80% { transform: translateY(-20px); opacity: 1; }
+          100% { transform: translateY(-40px); opacity: 0; }
+        }
+        @keyframes bounce-custom {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.15); border-color: #818cf8; }
+        }
+        @keyframes bounce-short {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
         @keyframes dizzy { 0%, 100% { filter: blur(0px); } 50% { filter: blur(1.5px); } }
-        .animate-bounce-gentle { animation: bounce-gentle 2s ease-in-out infinite; }
+        .animate-float-up-fade { animation: float-up-fade 2s ease-out forwards; }
+        .animate-bounce-custom { animation: bounce-custom 0.4s ease-out; }
+        .animate-bounce-short { animation: bounce-short 1.5s ease-in-out infinite; }
         .animate-dizzy { animation: dizzy 8s ease-in-out infinite; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>

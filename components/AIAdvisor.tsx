@@ -69,16 +69,16 @@ const AIAdvisor: React.FC<AIAdvisorProps> = ({ gameState }) => {
   if (!visible || !advice) return null;
 
   return (
-    <div className="fixed top-24 right-4 z-[100] pointer-events-none">
-      <div className="bg-slate-900/95 backdrop-blur-3xl border border-indigo-500/40 p-5 rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.8)] max-w-[280px] animate-in slide-in-from-right fade-in duration-700">
+    <div className="fixed top-32 sm:top-24 right-4 z-[100] pointer-events-none">
+      <div className="bg-slate-900/95 backdrop-blur-3xl border border-indigo-500/40 p-6 sm:p-5 rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.8)] max-w-[300px] sm:max-w-[280px] animate-in slide-in-from-right fade-in duration-700">
         <div className="flex items-center gap-3 mb-3">
           <div className="relative">
-             <span className="text-2xl">🦉</span>
+             <span className="text-3xl sm:text-2xl">🦉</span>
              <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-indigo-500 rounded-full animate-ping" />
           </div>
-          <span className="text-xs font-black uppercase tracking-[0.25em] text-indigo-400">Advisor</span>
+          <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.25em] text-indigo-400">Advisor</span>
         </div>
-        <p className="text-sm text-indigo-50/95 leading-relaxed font-medium italic drop-shadow-sm">
+        <p className="text-base sm:text-sm text-indigo-50/95 leading-relaxed font-medium italic drop-shadow-sm">
           "{advice}"
         </p>
       </div>

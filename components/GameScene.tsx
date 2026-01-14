@@ -107,7 +107,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
       const light = new THREE.PointLight(0xffaa00, 35, 20); 
       light.position.y = 1.2; 
       light.castShadow = true; 
-      light.shadow.bias = -0.005; // Fix for shadow acne
+      light.shadow.bias = -0.005; 
       light.shadow.mapSize.width = 512;
       light.shadow.mapSize.height = 512;
       group.add(light);
@@ -246,13 +246,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
         const px = (Math.random() - 0.5) * 600;
         const pz = (Math.random() - 0.5) * 600;
         const puddleGeo = new THREE.CircleGeometry(4 + Math.random() * 6, 16);
-        const puddleMat = new THREE.MeshStandardMaterial({ 
-          color: 0x1e40af, 
-          roughness: 0.02, 
-          metalness: 0.6, 
-          transparent: true, 
-          opacity: 0.8
-        });
+        const puddleMat = new THREE.MeshStandardMaterial({ color: 0x1e40af, roughness: 0.02, metalness: 0.6, transparent: true, opacity: 0.8 });
         const puddle = new THREE.Mesh(puddleGeo, puddleMat);
         puddle.rotation.x = -Math.PI / 2;
         puddle.position.set(px, 0.015, pz);
@@ -266,21 +260,24 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
         lod.position.set(x, 0, z);
         const barkMat = new THREE.MeshStandardMaterial({ color: 0x4a2e1b });
         if (type === 'tree' || type === 'appleTree') {
-            const h = 7 + Math.random() * 5;
+            // REDUCED SIZE BY 25% (Base height 7-12 * 0.75 = 5.25 - 9)
+            const h = (7 + Math.random() * 5) * 0.75;
             const g0 = new THREE.Group();
-            const t0 = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, h, 6), barkMat); t0.position.y = h/2; t0.castShadow = true; g0.add(t0);
+            const t0 = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.37, h, 6), barkMat); t0.position.y = h/2; t0.castShadow = true; g0.add(t0);
             const foliageCol = type === 'appleTree' ? 0x2d5a27 : 0x1e3a1a;
-            const l0 = new THREE.Mesh(new THREE.ConeGeometry(4, 8, 6), new THREE.MeshStandardMaterial({ color: foliageCol })); l0.position.y = h+2.5; l0.castShadow = true; g0.add(l0);
+            const l0 = new THREE.Mesh(new THREE.ConeGeometry(3, 6, 6), new THREE.MeshStandardMaterial({ color: foliageCol })); l0.position.y = h+1.8; l0.castShadow = true; g0.add(l0);
             lod.addLevel(g0, 0); lod.addLevel(new THREE.Group(), 200);
-            lod.userData = { type, isObstacle: true, radius: 1.0 };
+            lod.userData = { type, isObstacle: true, radius: 0.75 }; // Reduced collision radius
         } else if (type === 'rock') {
-            const s = 1.3 + Math.random() * 1.0;
+            // REDUCED SCALE BY 25% (1.3-2.3 * 0.75 = 0.975 - 1.725)
+            const s = (1.3 + Math.random() * 1.0) * 0.75;
             const r0 = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), new THREE.MeshStandardMaterial({ color: 0x666666 })); r0.position.y = s*0.4; r0.castShadow = true;
             lod.addLevel(r0, 0); lod.addLevel(new THREE.Group(), 160);
-            lod.userData = { type, isObstacle: true, radius: s*0.8 };
+            lod.userData = { type, isObstacle: true, radius: s * 0.8 };
         } else if (type === 'bush') {
-          const b = new THREE.Mesh(new THREE.IcosahedronGeometry(1.5, 0), new THREE.MeshStandardMaterial({ color: 0x2d5a27 }));
-          b.position.y = 0.75; lod.addLevel(b, 0); lod.addLevel(new THREE.Group(), 120);
+          const s = 1.1 + Math.random() * 0.4;
+          const b = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 0), new THREE.MeshStandardMaterial({ color: 0x2d5a27 }));
+          b.position.y = s * 0.5; lod.addLevel(b, 0); lod.addLevel(new THREE.Group(), 120);
           lod.userData = { type };
         }
         lod.updateMatrix(); lod.matrixAutoUpdate = false;
@@ -373,10 +370,8 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
 
         if (torchLightRef.current && isTorchActive) {
           torchLightRef.current.position.copy(camera.position).add(tempCamDir.clone().multiplyScalar(0.6));
-          // Realistic torch flicker
           const flicker = Math.sin(now * 0.01) * 2 + Math.sin(now * 0.05) * 4;
           torchLightRef.current.intensity = 25 + flicker;
-          // Jitter torch light position slightly
           torchLightRef.current.position.x += (Math.random() - 0.5) * 0.05;
           torchLightRef.current.position.z += (Math.random() - 0.5) * 0.05;
         }
@@ -404,11 +399,8 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
              });
              const light = cf.children.find(c => c instanceof THREE.PointLight) as THREE.PointLight;
              if (light) {
-               // Complex flicker logic for campfire
                const flicker = Math.sin(now * 0.01) * 5 + Math.sin(now * 0.04) * 10 + (Math.random() - 0.5) * 5;
                light.intensity = 35 + flicker;
-               
-               // Dynamic shadow movement by jittering light position
                const jitterRange = 0.15;
                light.position.x = (Math.random() - 0.5) * jitterRange;
                light.position.z = (Math.random() - 0.5) * jitterRange;
@@ -417,30 +409,24 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
            }
         });
 
-        // PROJECTILE PHYSICS
         const proj = (window as any).projectiles || [];
         (window as any).projectiles = proj.filter((p: any) => {
           if (p.isStuck) return true;
-
           const prevPos = p.mesh.position.clone();
           p.velocity.y -= 16 * delta; 
           p.mesh.position.add(p.velocity.clone().multiplyScalar(delta));
           p.mesh.lookAt(p.mesh.position.clone().add(p.velocity));
           p.mesh.rotateX(Math.PI/2);
-          
           raycaster.set(prevPos, p.velocity.clone().normalize());
           const rayDist = prevPos.distanceTo(p.mesh.position);
-
           const interactables = [...worldObjectsRef.current, ...critterGroupRef.current.children].filter(o => o.visible);
           const hits = raycaster.intersectObjects(interactables, true);
-
           if (hits.length > 0 && hits[0].distance <= rayDist) {
             const hit = hits[0];
             p.isStuck = true;
             p.mesh.position.copy(hit.point);
             let target = hit.object; while(target.parent && !target.userData.type) target = target.parent;
             p.stuckTo = target;
-            
             if (target.userData.type === 'rabbit' || target.userData.type === 'critter' || target.userData.type === 'partridge') {
                target.visible = false;
                playSFX(SFX_URLS.collect_meat, 0.8);
@@ -450,7 +436,6 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
             }
             return true;
           }
-
           if (p.mesh.position.y < 0.1) {
             p.isStuck = true; 
             p.mesh.position.y = 0.1;
