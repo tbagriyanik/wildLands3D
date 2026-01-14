@@ -99,7 +99,9 @@ export const TRANSLATIONS = {
     treeDetail: "Provides wood for building and heat.",
     rockDetail: "Solid stone. Used for crafting flint and arrows.",
     campfireDetail: "Restores body temperature and allows cooking.",
-    arrowDetail: "A projectile that can be retrieved and reused."
+    arrowDetail: "A projectile that can be retrieved and reused.",
+    cookingSuccess: "Food cooked successfully!",
+    nothingToCook: "No raw food to cook."
   },
   tr: {
     newGame: "YENİ OYUN",
@@ -171,7 +173,9 @@ export const TRANSLATIONS = {
     treeDetail: "Isınma ve üretim için odun sağlar.",
     rockDetail: "Ok ve çakmaktaşı üretimi için ham taş.",
     campfireDetail: "Vücut ısısını dengeler ve yemek pişirir.",
-    arrowDetail: "Atılan oku yerden alarak tekrar kullanabilirsin."
+    arrowDetail: "Atılan oku yerden alarak tekrar kullanabilirsin.",
+    cookingSuccess: "Yemek başarıyla pişirildi!",
+    nothingToCook: "Pişirilecek çiğ yiyecek yok."
   }
 };
 

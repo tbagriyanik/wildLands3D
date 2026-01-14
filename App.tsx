@@ -6,7 +6,7 @@ import AIAdvisor from './components/AIAdvisor';
 import { GameState, InteractionTarget, MobileInput, InventoryItem } from './types';
 import { INITIAL_STATS, SURVIVAL_DECAY_RATES, TRANSLATIONS, SFX_URLS, MUSIC_URL } from './constants';
 
-const SAVE_KEY = 'wildlands_survival_v26';
+const SAVE_KEY = 'wildlands_survival_v27';
 
 const ITEM_PRIORITY: Record<string, number> = {
   'Bow': 100,
@@ -89,6 +89,49 @@ const App: React.FC = () => {
 
   const handleUseItem = useCallback((itemId: string) => {
     setGameState(prev => {
+      // Özel Etkileşim: Kamp Ateşi ile Pişirme
+      if (itemId === 'campfire') {
+        let newInv = [...prev.inventory];
+        let rawMeatIndex = newInv.findIndex(i => i.name === 'Raw Meat');
+        let appleIndex = newInv.findIndex(i => i.name === 'Apple');
+        
+        let cookedSomething = false;
+
+        // Önce eti pişirmeyi dene
+        if (rawMeatIndex !== -1) {
+          playSFX(SFX_URLS.campfire_cook);
+          // Çiğ eti azalt
+          if (newInv[rawMeatIndex].count > 1) {
+            newInv[rawMeatIndex] = { ...newInv[rawMeatIndex], count: newInv[rawMeatIndex].count - 1 };
+          } else {
+            newInv.splice(rawMeatIndex, 1);
+          }
+          // Pişmiş et ekle
+          let cookedIndex = newInv.findIndex(i => i.name === 'Cooked Meat');
+          if (cookedIndex !== -1) newInv[cookedIndex].count++;
+          else newInv.push({ id: 'cooked_' + Date.now(), name: 'Cooked Meat', type: 'food', count: 1 });
+          cookedSomething = true;
+        } 
+        // Yoksa elmayı pişir
+        else if (appleIndex !== -1) {
+          playSFX(SFX_URLS.campfire_cook);
+          if (newInv[appleIndex].count > 1) {
+            newInv[appleIndex] = { ...newInv[appleIndex], count: newInv[appleIndex].count - 1 };
+          } else {
+            newInv.splice(appleIndex, 1);
+          }
+          let roastedIndex = newInv.findIndex(i => i.name === 'Roasted Apple');
+          if (roastedIndex !== -1) newInv[roastedIndex].count++;
+          else newInv.push({ id: 'roasted_' + Date.now(), name: 'Roasted Apple', type: 'food', count: 1 });
+          cookedSomething = true;
+        }
+
+        if (cookedSomething) {
+          return { ...prev, inventory: sortInventory(newInv) };
+        }
+        return prev;
+      }
+
       const itemIndex = prev.inventory.findIndex(i => i.id === itemId);
       if (itemIndex === -1) return prev;
       const item = prev.inventory[itemIndex];
@@ -107,7 +150,11 @@ const App: React.FC = () => {
 
       if (item.name === 'Apple') {
         newStats.hunger = Math.min(100, newStats.hunger + 15);
-        newStats.health = Math.min(100, newStats.health + 8);
+        newStats.health = Math.min(100, newStats.health + 5);
+        consumed = true;
+      } else if (item.name === 'Roasted Apple') {
+        newStats.hunger = Math.min(100, newStats.hunger + 25);
+        newStats.health = Math.min(100, newStats.health + 12);
         consumed = true;
       } else if (item.name === 'Cooked Meat') {
         newStats.hunger = Math.min(100, newStats.hunger + 55);
@@ -115,7 +162,7 @@ const App: React.FC = () => {
         consumed = true;
       } else if (item.name === 'Raw Meat') {
         newStats.hunger = Math.min(100, newStats.hunger + 12);
-        newStats.health = Math.max(0, newStats.health - 6);
+        newStats.health = Math.max(0, newStats.health - 8); // Çiğ et zarar verebilir
         consumed = true;
       } else if (item.name === 'Berries') {
         newStats.hunger = Math.min(100, newStats.hunger + 10);
@@ -250,6 +297,12 @@ const App: React.FC = () => {
 
   const startNewGame = () => { localStorage.removeItem(SAVE_KEY); setGameState(getInitialState()); setGameKey(prev => prev + 1); setView('game'); setShowNewGameConfirm(false); setIsCraftingOpen(false); };
 
+  useEffect(() => {
+    if (gameState) {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
+    }
+  }, [gameState]);
+
   return (
     <div className="w-screen h-screen bg-slate-950 text-white font-sans overflow-hidden">
       <GameScene 
@@ -265,7 +318,8 @@ const App: React.FC = () => {
         }}
         onDrink={() => { setGameState(p => ({ ...p, stats: { ...p.stats, thirst: Math.min(100, p.stats.thirst + 25) }})); playSFX(SFX_URLS.drink_swallow); }}
         onPositionUpdate={(info) => { playerInfoRef.current = info; setPlayerRotation(Math.atan2(info.dirX, info.dirZ)); }}
-        onLockChange={setIsLocked} onCook={handleUseItem}
+        onLockChange={setIsLocked} 
+        onCook={(id) => handleUseItem('campfire')}
         onShoot={() => setGameState(p => ({ ...p, inventory: p.inventory.map(i => i.name === 'Arrow' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0) }))}
         isBowActive={gameState.inventory.find(i => i.id === activeToolId)?.name === 'Bow'}
         isTorchActive={gameState.inventory.find(i => i.id === activeToolId)?.name === 'Torch'}
@@ -276,7 +330,7 @@ const App: React.FC = () => {
       <UIOverlay 
         gameState={gameState} interaction={interaction} onUseItem={handleUseItem} onCraft={handleCraft} isVisible={view === 'game'} 
         isCraftingOpen={isCraftingOpen} setIsCraftingOpen={setIsCraftingOpen} playerRotation={playerRotation} 
-        activeToolId={activeToolId} onMobileInput={setMobileInput} isMobile={isMobile} onCook={() => {}} cookingItem={null} 
+        activeToolId={activeToolId} onMobileInput={setMobileInput} isMobile={isMobile} onCook={() => handleUseItem('campfire')} cookingItem={null} 
         isHungerCritical={gameState.stats.hunger < 20} isThirstCritical={gameState.stats.thirst < 20} isWarmingUp={isWarmingUp} showTodoList={true} 
       />
       <AIAdvisor gameState={gameState} />
