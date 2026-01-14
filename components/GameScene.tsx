@@ -56,6 +56,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
   useEffect(() => {
     propsRef.current = { onInteract, onCollect, onDrink, onCook, onShoot, onPositionUpdate, onLockChange, isBowActive, isTorchActive, arrowCount, time, sfxEnabled, isMobile, mobileInput, isLocked, isCraftingOpen };
     
+    // CRAFT MENÜSÜ AÇIKKEN KİLİDİ MUTLAKA ÇÖZ
     if (isCraftingOpen && controlsRef.current?.isLocked) {
       controlsRef.current.unlock();
     }
@@ -102,20 +103,17 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
             propsRef.current.onCollect(t === 'appleTree' ? 'Apple' : t === 'tree' ? 'Wood' : t === 'rock' ? 'Stone' : 'Berries'); 
             o.visible = false; o.userData.isObstacle = false; 
           }
-          else if (['rabbit', 'squirrel'].includes(t)) { propsRef.current.onCollect('Raw Meat'); o.visible = false; }
+          else if (['rabbit', 'squirrel', 'partridge'].includes(t)) { propsRef.current.onCollect('Raw Meat'); o.visible = false; }
           playSFX(SFX_URLS.collect_item_generic);
         }
     }
   };
 
   const requestLock = () => {
-    // Sadece etkileşim sırasında ve craft menüsü kapalıyken kilitle
     if (controlsRef.current && !controlsRef.current.isLocked && !propsRef.current.isCraftingOpen && !propsRef.current.isMobile) {
       try {
         controlsRef.current.lock();
-      } catch (e) {
-        // Hata durumunda sessizce yoksay (browser kilitlenmeyi reddetmiş olabilir)
-      }
+      } catch (e) {}
     }
   };
   useImperativeHandle(ref, () => ({ triggerAction, requestLock }));
@@ -148,24 +146,38 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), new THREE.MeshStandardMaterial({ map: grassTex, roughness: 0.8 }));
     ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 
-    const createCritter = (type: 'rabbit' | 'squirrel', x: number, z: number) => {
+    const createCritter = (type: 'rabbit' | 'squirrel' | 'partridge', x: number, z: number) => {
       const group = new THREE.Group(); group.position.set(x, 0.2, z);
-      const mat = new THREE.MeshStandardMaterial({ color: type === 'rabbit' ? 0xffffff : 0x8b4513, roughness: 1 });
-      const body = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.4), mat); group.add(body);
-      const head = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.15), mat); head.position.set(0, 0.1, -0.2); group.add(head);
-      if(type === 'rabbit') {
-        const ear = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.2, 0.08), mat);
-        ear.position.set(0.04, 0.2, -0.2); group.add(ear);
-        const ear2 = ear.clone(); ear2.position.x = -0.04; group.add(ear2);
+      
+      if (type === 'partridge') {
+        // Keklik - Küçük kuş modeli
+        const mat = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 1 });
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.3), mat); body.position.y = 0.1; group.add(body);
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), mat); head.position.set(0, 0.2, -0.15); group.add(head);
+        const beak = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.06), new THREE.MeshStandardMaterial({ color: 0xffa000 })); beak.position.set(0, 0.2, -0.22); group.add(beak);
+        const wing = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.15, 0.2), mat); wing.position.set(0.11, 0.12, 0); group.add(wing);
+        const wing2 = wing.clone(); wing2.position.x = -0.11; group.add(wing2);
       } else {
-        const tail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.25, 0.1), mat);
-        tail.position.set(0, 0.15, 0.2); tail.rotation.x = 0.5; group.add(tail);
+        const mat = new THREE.MeshStandardMaterial({ color: type === 'rabbit' ? 0xffffff : 0x8b4513, roughness: 1 });
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.4), mat); group.add(body);
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.15), mat); head.position.set(0, 0.1, -0.2); group.add(head);
+        if(type === 'rabbit') {
+          const ear = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.2, 0.08), mat);
+          ear.position.set(0.04, 0.2, -0.2); group.add(ear);
+          const ear2 = ear.clone(); ear2.position.x = -0.04; group.add(ear2);
+        } else {
+          const tail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.25, 0.1), mat);
+          tail.position.set(0, 0.15, 0.2); tail.rotation.x = 0.5; group.add(tail);
+        }
       }
       group.userData = { type, nextJump: 0, vel: new THREE.Vector3() };
       critterGroupRef.current.add(group);
     };
 
-    for(let i=0; i<40; i++) createCritter(Math.random() > 0.6 ? 'rabbit' : 'squirrel', (Math.random()-0.5)*800, (Math.random()-0.5)*800);
+    for(let i=0; i<60; i++) {
+      const type = Math.random() > 0.66 ? 'rabbit' : (Math.random() > 0.5 ? 'squirrel' : 'partridge');
+      createCritter(type, (Math.random()-0.5)*1000, (Math.random()-0.5)*1000);
+    }
 
     const createFoliage = (x: number, z: number, type: string) => {
         const group = new THREE.Group(); group.position.set(x, 0, z);
@@ -207,7 +219,6 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     };
     window.addEventListener('keydown', onKD); window.addEventListener('keyup', onKU);
     
-    // Güvenli kilitlenme çağrısı
     const onMouseDown = () => {
       if(!propsRef.current.isCraftingOpen && !propsRef.current.isMobile) {
         requestLock();
@@ -246,7 +257,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
         for (let i = flyingArrowsRef.current.length - 1; i >= 0; i--) {
           const a = flyingArrowsRef.current[i]; const v = a.userData.velocity as THREE.Vector3;
           const prev = a.position.clone(); 
-          v.y -= 14 * delta; // Gravity
+          v.y -= 14 * delta;
           a.position.add(v.clone().multiplyScalar(delta)); 
           a.lookAt(a.position.clone().add(v));
           
@@ -262,14 +273,16 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
           if (a.userData.life <= 0) { a.removeFromParent(); flyingArrowsRef.current.splice(i, 1); } else a.userData.life -= delta;
         }
 
-        // Critter AI (Tavşan/Sincap)
+        // Critter AI (Tavşan/Sincap/Keklik)
         critterGroupRef.current.children.forEach(c => {
           if(!c.visible) return;
           const ud = c.userData;
           if(Date.now() > ud.nextJump) {
             const angle = Math.random() * Math.PI * 2;
-            ud.vel.set(Math.cos(angle) * 3, 5, Math.sin(angle) * 3);
-            ud.nextJump = Date.now() + 2000 + Math.random() * 4000;
+            const jumpPower = ud.type === 'partridge' ? 6 : 5;
+            const movePower = ud.type === 'partridge' ? 5 : 3;
+            ud.vel.set(Math.cos(angle) * movePower, jumpPower, Math.sin(angle) * movePower);
+            ud.nextJump = Date.now() + 1500 + Math.random() * 3000;
           }
           if(c.position.y > 0.2 || ud.vel.y > 0) {
             c.position.add(ud.vel.clone().multiplyScalar(delta));
@@ -279,7 +292,6 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
           }
         });
 
-        // Sky / Sun Sync
         const phi = (time / 2400) * Math.PI * 2 - Math.PI / 2;
         const sunPos = new THREE.Vector3().setFromSphericalCoords(1, phi, Math.PI / 2.5);
         if(skyRef.current) {
@@ -290,7 +302,6 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
           scene.fog = new THREE.FogExp2(0x020617, 0.001 + (1-intensity) * 0.005);
         }
         
-        camera.getWorldDirection(new THREE.Vector3()); // Just to keep ref updated
         const camDir = new THREE.Vector3(); camera.getWorldDirection(camDir);
         propsRef.current.onPositionUpdate({ x: camera.position.x, y: camera.position.y, z: camera.position.z, dirX: camDir.x, dirZ: camDir.z });
         renderer.render(scene, camera);

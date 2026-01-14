@@ -42,7 +42,7 @@ export interface GameState {
 }
 
 export interface InteractionTarget {
-  type: 'tree' | 'appleTree' | 'bush' | 'water' | 'rock' | 'campfire' | 'critter' | 'arrow' | 'none';
+  type: 'tree' | 'appleTree' | 'bush' | 'water' | 'rock' | 'campfire' | 'critter' | 'arrow' | 'partridge' | 'none';
   id?: string;
 }
 
