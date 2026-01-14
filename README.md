@@ -18,5 +18,3 @@ View your app in AI Studio: https://ai.studio/apps/drive/1n2BAhSwdsXzTEdipO5f1iW
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
-
-   ![Önizleme](https://github.com/tbagriyanik/wildLands3D/blob/main/Ekran%20g%C3%B6r%C3%BCnt%C3%BCs%C3%BC%202026-01-14%20160509.png)

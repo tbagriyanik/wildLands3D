@@ -37,6 +37,8 @@ export interface GameState {
   settings: GameSettings;
   weather: WeatherType;
   campfires: CampfireData[];
+  playerPosition?: { x: number, y: number, z: number };
+  playerRotation?: number;
 }
 
 export interface InteractionTarget {

@@ -1,5 +1,5 @@
 
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { GameState, InteractionTarget, MobileInput, InventoryItem } from '../types';
 import { COLORS, TRANSLATIONS } from '../constants';
 
@@ -23,13 +23,6 @@ interface UIOverlayProps {
   setIsCraftingOpen: (open: boolean) => void;
 }
 
-interface DeltaIndicator {
-  id: string;
-  amount: number;
-  itemName: string; 
-  icon: string;
-}
-
 const getItemIcon = (name: string): string => {
   switch (name) {
     case 'Wood': return '🪵';
@@ -48,149 +41,14 @@ const getItemIcon = (name: string): string => {
   }
 };
 
-const MouseIcon = ({ active }: { active: boolean }) => (
-  <svg viewBox="0 0 24 24" fill="none" className={`w-6 h-6 transition-all duration-300 ${active ? 'scale-110 drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'opacity-40'}`}>
-    <path d="M12 2C8.686 2 6 4.686 6 8v8c0 3.314 2.686 6 6 6s6-2.686 6-6V8c0-3.314-2.686-6-6-6z" stroke="currentColor" strokeWidth="1.5" />
-    <path d="M12 2v6m-6 0h12" stroke="currentColor" strokeWidth="1.5" />
-    <path d="M12 5v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={active ? "animate-pulse" : ""} />
-    {active && <rect x="6" y="2" width="6" height="6" fill="currentColor" fillOpacity="0.3" rx="3" />}
-  </svg>
-);
-
-const ArrowIconSVG = () => (
-  <svg viewBox="0 0 100 100" className="w-full h-full">
-    <line x1="20" y1="80" x2="70" y2="30" stroke="#8b4513" strokeWidth="6" />
-    <polygon points="70,30 85,15 75,45" fill="#333" />
-    <rect x="15" y="75" width="15" height="15" fill="#fff" transform="rotate(-45 22 82)" opacity="0.8" />
-  </svg>
-);
-
-const Compass: React.FC<{ rotation: number }> = ({ rotation }) => {
-  const degree = (rotation * 180) / Math.PI;
-  const markers = [
-    { label: 'S', pos: 0 },
-    { label: 'E', pos: 90 },
-    { label: 'N', pos: 180 },
-    { label: 'W', pos: 270 },
-    { label: 'S', pos: 360 },
-  ];
-
-  return (
-    <div className="absolute top-[env(safe-area-inset-top,8px)] left-1/2 -translate-x-1/2 w-48 sm:w-64 h-10 bg-black/60 backdrop-blur-md rounded-full border border-white/20 overflow-hidden pointer-events-none flex items-center justify-center shadow-2xl">
-      <div className="relative w-full h-full flex items-center transition-transform duration-150 ease-out" style={{ transform: `translateX(${-degree * 0.8}px)` }}>
-        {[-360, 0, 360].map(offset => (
-          <React.Fragment key={offset}>
-            {markers.map(m => (
-              <div key={m.label + offset + m.pos} className="absolute flex flex-col items-center" style={{ left: `${(m.pos + offset) * 0.8 + 32}px` }}>
-                <span className="text-xs font-black text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">{m.label}</span>
-                <div className="w-0.5 h-1.5 bg-white/50" />
-              </div>
-            ))}
-          </React.Fragment>
-        ))}
-      </div>
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0.5 h-full bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,1)] z-10" />
-    </div>
-  );
-};
-
 const UIOverlay: React.FC<UIOverlayProps> = ({ 
-  gameState, interaction, onUseItem, onCraft, onCook, cookingItem, isVisible, isHungerCritical, isThirstCritical, isWarmingUp, showTodoList, isMobile, onMobileInput, playerRotation, activeToolId, isCraftingOpen, setIsCraftingOpen
+  gameState, interaction, onUseItem, onCraft, onCook, cookingItem, isVisible, isHungerCritical, isThirstCritical, isWarmingUp, isMobile, onMobileInput, playerRotation, activeToolId, isCraftingOpen, setIsCraftingOpen
 }) => {
-  const { stats, inventory, time, settings, campfires } = gameState;
+  const { stats, inventory, time, settings } = gameState;
   const t = TRANSLATIONS[settings.language];
-  const [deltas, setDeltas] = useState<DeltaIndicator[]>([]);
   const [pulseItems, setPulseItems] = useState<Record<string, boolean>>({});
-  const prevInventoryRef = useRef<InventoryItem[]>([]);
   const joystickRef = useRef<{ startX: number; startY: number; isActive: boolean }>({ startX: 0, startY: 0, isActive: false });
   const lookRef = useRef<{ lastX: number; lastY: number; isActive: boolean }>({ lastX: 0, lastY: 0, isActive: false });
-
-  const handleJoystickStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    joystickRef.current = { startX: touch.clientX, startY: touch.clientY, isActive: true };
-  };
-
-  const handleJoystickMove = (e: React.TouchEvent) => {
-    if (!joystickRef.current.isActive) return;
-    const touch = e.touches[0];
-    const dx = touch.clientX - joystickRef.current.startX;
-    const dy = touch.clientY - joystickRef.current.startY;
-    const dist = Math.min(30, Math.sqrt(dx * dx + dy * dy));
-    const angle = Math.atan2(dy, dx);
-    const moveX = (Math.cos(angle) * dist) / 30;
-    const moveY = -(Math.sin(angle) * dist) / 30;
-    onMobileInput(prev => ({ ...prev, moveX, moveY }));
-  };
-
-  const handleJoystickEnd = () => {
-    joystickRef.current.isActive = false;
-    onMobileInput(prev => ({ ...prev, moveX: 0, moveY: 0 }));
-  };
-
-  const handleLookStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    lookRef.current = { lastX: touch.clientX, lastY: touch.clientY, isActive: true };
-  };
-
-  const handleLookMove = (e: React.TouchEvent) => {
-    if (!lookRef.current.isActive) return;
-    const touch = e.touches[0];
-    const dx = touch.clientX - lookRef.current.lastX;
-    const dy = touch.clientY - lookRef.current.lastY;
-    lookRef.current.lastX = touch.clientX;
-    lookRef.current.lastY = touch.clientY;
-    onMobileInput(prev => ({ ...prev, lookX: dx, lookY: dy }));
-    setTimeout(() => onMobileInput(prev => ({ ...prev, lookX: 0, lookY: 0 })), 0);
-  };
-
-  const handleLookEnd = () => {
-    lookRef.current.isActive = false;
-    onMobileInput(prev => ({ ...prev, lookX: 0, lookY: 0 }));
-  };
-
-  useEffect(() => {
-    const newDeltas: DeltaIndicator[] = [];
-    const newPulses: Record<string, boolean> = {};
-
-    inventory.forEach(item => {
-      const prevItem = prevInventoryRef.current.find(pi => pi.name === item.name);
-      const prevCount = prevItem ? prevItem.count : 0;
-      
-      if (item.count !== prevCount) {
-        newDeltas.push({
-          id: Math.random().toString(36).substr(2, 9),
-          itemName: item.name,
-          amount: item.count - prevCount,
-          icon: getItemIcon(item.name)
-        });
-        newPulses[item.name] = true;
-      }
-    });
-
-    prevInventoryRef.current.forEach(prevItem => {
-      const currentItem = inventory.find(i => i.name === prevItem.name);
-      if (!currentItem) {
-        newDeltas.push({
-          id: Math.random().toString(36).substr(2, 9),
-          itemName: prevItem.name,
-          amount: -prevItem.count,
-          icon: getItemIcon(prevItem.name)
-        });
-      }
-    });
-
-    if (newDeltas.length > 0) {
-      setDeltas(prev => [...prev, ...newDeltas]);
-      setPulseItems(prev => ({ ...prev, ...newPulses }));
-      setTimeout(() => setDeltas(prev => prev.filter(d => !newDeltas.find(nd => nd.id === d.id))), 2000);
-      setTimeout(() => setPulseItems(prev => {
-          const updated = { ...prev };
-          Object.keys(newPulses).forEach(k => delete updated[k]);
-          return updated;
-      }), 600);
-    }
-    prevInventoryRef.current = inventory;
-  }, [inventory]);
 
   const woodCount = inventory.find(i => i.name === 'Wood')?.count || 0;
   const flintCount = inventory.find(i => i.name === 'Flint Stone')?.count || 0;
@@ -200,7 +58,27 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   const canCraftBow = !inventory.some(i => i.name === 'Bow') && woodCount >= 3;
   const canCraftTorch = !inventory.some(i => i.name === 'Torch') && woodCount >= 1 && flintCount >= 1;
 
-  const hasCookableItem = inventory.some(i => ['Raw Meat', 'Apple', 'Berries'].includes(i.name));
+  const handleJoystickStart = (e: React.TouchEvent) => { joystickRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, isActive: true }; };
+  const handleJoystickMove = (e: React.TouchEvent) => {
+    if (!joystickRef.current.isActive) return;
+    const dx = e.touches[0].clientX - joystickRef.current.startX;
+    const dy = e.touches[0].clientY - joystickRef.current.startY;
+    const dist = Math.min(30, Math.sqrt(dx * dx + dy * dy));
+    const angle = Math.atan2(dy, dx);
+    onMobileInput(prev => ({ ...prev, moveX: (Math.cos(angle) * dist) / 30, moveY: -(Math.sin(angle) * dist) / 30 }));
+  };
+  const handleJoystickEnd = () => { joystickRef.current.isActive = false; onMobileInput(prev => ({ ...prev, moveX: 0, moveY: 0 })); };
+
+  const handleLookStart = (e: React.TouchEvent) => { lookRef.current = { lastX: e.touches[0].clientX, lastY: e.touches[0].clientY, isActive: true }; };
+  const handleLookMove = (e: React.TouchEvent) => {
+    if (!lookRef.current.isActive) return;
+    const dx = e.touches[0].clientX - lookRef.current.lastX;
+    const dy = e.touches[0].clientY - lookRef.current.lastY;
+    lookRef.current.lastX = e.touches[0].clientX; lookRef.current.lastY = e.touches[0].clientY;
+    onMobileInput(prev => ({ ...prev, lookX: dx, lookY: dy }));
+    setTimeout(() => onMobileInput(prev => ({ ...prev, lookX: 0, lookY: 0 })), 0);
+  };
+  const handleLookEnd = () => { lookRef.current.isActive = false; };
 
   const formatTime = (t: number) => {
     const hours = Math.floor(t / 100);
@@ -208,187 +86,107 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
   };
 
-  const StatBar = ({ label, value, color, unit = "%", pulse = false, flicker = false, glow = false }: { label: string, value: number, color: string, unit?: string, pulse?: boolean, flicker?: boolean, glow?: boolean }) => (
-    <div className={`mb-2 w-full ${pulse ? 'animate-pulse' : ''} ${flicker ? 'animate-weak-flicker' : ''}`}>
-      <div className="flex justify-between items-center text-[11px] sm:text-[10px] font-black text-white/90 uppercase tracking-widest mb-1 px-1">
+  const StatBar = ({ label, value, color, pulse = false }: { label: string, value: number, color: string, pulse?: boolean }) => (
+    <div className={`mb-2 w-full ${pulse ? 'animate-pulse' : ''}`}>
+      <div className="flex justify-between items-center text-[10px] font-black text-white/80 uppercase tracking-widest mb-1 px-1">
         <span>{label}</span>
-        <span>{Math.round(value)}{unit}</span>
+        <span>{Math.round(value)}%</span>
       </div>
-      <div className={`w-full h-2 sm:h-1.5 bg-black/60 rounded-full overflow-hidden border border-white/5 shadow-inner ${glow ? `shadow-[0_0_8px_rgba(255,255,255,0.4)]` : ''}`}>
-        <div className={`h-full transition-all duration-500 ease-out`} style={{ width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: color }} />
+      <div className="w-full h-1.5 bg-black/50 rounded-full overflow-hidden border border-white/5">
+        <div className="h-full transition-all duration-500" style={{ width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: color }} />
       </div>
     </div>
   );
 
-  const CraftButton = ({ label, onClick, disabled, icon, hotkey }: { label: string, onClick: (e: any) => void, disabled: boolean, icon: React.ReactNode, hotkey: string }) => (
-    <button 
-      onClick={onClick}
-      disabled={disabled}
-      className={`flex items-center justify-between w-full p-3 sm:p-2 rounded-xl border transition-all mb-2 sm:mb-1 ${
-        disabled 
-        ? 'bg-black/40 border-white/5 text-white/20' 
-        : 'bg-white/5 border-white/10 hover:bg-white/15 text-white active:bg-white/20'
-      }`}
-    >
-      <div className="flex items-center gap-3 sm:gap-2">
-        <span className="w-6 h-6 sm:w-5 sm:h-5 flex items-center justify-center text-lg sm:text-base">{icon}</span>
-        <span className="text-xs sm:text-[10px] font-black uppercase tracking-tighter">{label}</span>
-      </div>
-      {!isMobile && <span className="text-[8px] opacity-30 font-bold">{hotkey}</span>}
-    </button>
+  const CraftItem = ({ label, onClick, disabled, icon, req }: { label: string, onClick: () => void, disabled: boolean, icon: string, req: string }) => (
+    <div className={`p-4 rounded-2xl border transition-all flex flex-col items-center text-center gap-2 ${disabled ? 'bg-black/40 border-white/5 opacity-50' : 'bg-white/5 border-white/10 hover:bg-white/10 cursor-pointer'}`} onClick={() => !disabled && onClick()}>
+      <span className="text-4xl mb-1">{icon}</span>
+      <span className="text-[10px] font-black uppercase tracking-tighter">{label}</span>
+      <span className={`text-[8px] font-bold ${disabled ? 'text-red-400' : 'text-green-400'}`}>{req}</span>
+    </div>
   );
 
-  const interactionIcon = (() => {
-    switch (interaction.type) {
-      case 'tree': case 'appleTree': return '🪓'; 
-      case 'rock': return '⛏️'; 
-      case 'bush': return '🫐';
-      case 'water': return '💧'; 
-      case 'campfire': return '🍳'; 
-      case 'rabbit': return '🐇';
-      case 'arrow': return '🏹';
-      default: return null;
-    }
-  })();
-
-  const interactionLabel = (() => {
-    if (interaction.type === 'campfire' && hasCookableItem) {
-      return settings.language === 'tr' ? 'YEMEK PİŞİR' : 'COOK FOOD';
-    }
-    return t[interaction.type as keyof typeof t] || interaction.type;
-  })();
-
-  const showInteraction = interaction.type !== 'none' || cookingItem;
-
   return (
-    <div className={`absolute inset-0 pointer-events-none flex flex-col justify-between p-4 z-20 transition-opacity duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'} pb-[env(safe-area-inset-bottom,16px)] pt-[env(safe-area-inset-top,16px)] pl-[env(safe-area-inset-left,16px)] pr-[env(safe-area-inset-right,16px)]`}>
+    <div className={`absolute inset-0 pointer-events-none z-20 flex flex-col justify-between p-6 transition-opacity duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
       
-      {isHungerCritical && <div className="absolute inset-0 z-50 pointer-events-none shadow-[inset_0_0_100px_rgba(153,27,27,0.5)] animate-pulse" />}
-      {isThirstCritical && <div className="absolute inset-0 z-50 pointer-events-none shadow-[inset_0_0_100px_rgba(30,58,138,0.5)] animate-pulse" />}
-
-      <Compass rotation={playerRotation} />
-
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
-          <div className={`relative flex items-center justify-center transition-all duration-300 ${showInteraction ? 'scale-125' : 'scale-100'}`}>
-            <div className={`w-1 h-1 rounded-full bg-white transition-opacity ${showInteraction ? 'opacity-0' : 'opacity-50'}`} />
-            
-            <div className={`absolute transition-all duration-500 flex flex-col items-center ${showInteraction ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-               <div className="text-4xl sm:text-3xl mb-3 sm:mb-2 drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)] animate-bounce-short">
-                 {cookingItem ? '🔥' : interactionIcon}
-               </div>
-               
-               <div className="flex flex-col items-center gap-1">
-                 <div className="flex items-center gap-3 sm:gap-2 bg-black/80 backdrop-blur-md px-5 py-3 sm:px-4 sm:py-2 rounded-2xl border border-white/20 shadow-2xl">
-                    {!isMobile && <MouseIcon active={!!showInteraction} />}
-                    <div className="flex flex-col">
-                      <span className="text-xs sm:text-[11px] font-black text-white uppercase tracking-wider leading-none">
-                        {cookingItem ? (settings.language === 'tr' ? `PİŞİRİLİYOR: ${cookingItem}` : `COOKING: ${cookingItem}`) : interactionLabel}
-                      </span>
-                      {!cookingItem && (
-                        <span className="text-[9px] sm:text-[8px] font-bold text-indigo-400 uppercase tracking-tighter mt-1.5 sm:mt-1">
-                          {isMobile ? (settings.language === 'tr' ? 'DOKUN' : 'TAP') : (settings.language === 'tr' ? 'SOL TIKLA' : 'LEFT CLICK')}
-                        </span>
-                      )}
-                    </div>
-                 </div>
-               </div>
-            </div>
-          </div>
-      </div>
-
-      <div className="flex flex-col gap-3 items-start">
-        <div className="bg-black/70 backdrop-blur-xl p-4 sm:p-3 rounded-xl border border-white/10 w-44 sm:w-40 shadow-xl pointer-events-auto">
-          <div className="flex justify-between items-center text-[11px] sm:text-[10px] text-indigo-400 font-black mb-3 sm:mb-2 border-b border-white/5 pb-1.5 sm:pb-1">
+      {/* HUD - Stats */}
+      <div className="flex justify-between items-start">
+        <div className="bg-black/60 backdrop-blur-xl p-4 rounded-2xl border border-white/10 w-44 pointer-events-auto">
+          <div className="flex justify-between items-center text-[11px] text-indigo-400 font-black mb-3 border-b border-white/5 pb-2">
              <span>{t.day} {gameState.day}</span>
              <span>{formatTime(time)}</span>
           </div>
           <StatBar label={t.health} value={stats.health} color={COLORS.health} pulse={stats.health < 25} />
           <StatBar label={t.hunger} value={stats.hunger} color={COLORS.hunger} pulse={isHungerCritical} />
           <StatBar label={t.thirst} value={stats.thirst} color={COLORS.thirst} pulse={isThirstCritical} />
-          <StatBar label={t.energy} value={stats.energy} color={COLORS.energy} glow={isWarmingUp} />
-          <StatBar label={t.temp} value={stats.temperature} color={COLORS.temperature} unit="°" glow={isWarmingUp} />
+          <StatBar label={t.energy} value={stats.energy} color={COLORS.energy} />
         </div>
 
-        <div className={`transition-all duration-300 pointer-events-auto flex flex-col items-start ${isCraftingOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'}`}>
-          <div className="bg-slate-900/80 backdrop-blur-xl p-4 sm:p-3 rounded-xl border border-white/10 w-52 sm:w-48 shadow-2xl">
-             <div className="flex justify-between items-center mb-3 sm:mb-2 px-1">
-               <h3 className="text-xs sm:text-[10px] font-black uppercase tracking-widest text-orange-400">{t.craft}</h3>
-               <button onClick={() => setIsCraftingOpen(false)} className="text-white/30 text-xl sm:text-xs">×</button>
-             </div>
-             <CraftButton label={t.campfire} onClick={() => onCraft('campfire')} disabled={!canCraftCampfire} icon="🔥" hotkey="F" />
-             <CraftButton label={t.Arrow} onClick={() => onCraft('arrows')} disabled={!canCraftArrow} icon={<ArrowIconSVG />} hotkey="X" />
-             <CraftButton label={t.Bow} onClick={() => onCraft('bow')} disabled={!canCraftBow} icon="🏹" hotkey="V" />
-             <CraftButton label={t.Torch} onClick={() => onCraft('torch')} disabled={!canCraftTorch} icon="🔦" hotkey="T" />
+        {/* Compass */}
+        <div className="relative w-48 h-10 bg-black/60 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center overflow-hidden">
+          <div className="absolute w-[200%] flex justify-around text-[10px] font-black tracking-widest transition-transform duration-100" style={{ transform: `translateX(${-((playerRotation * 180 / Math.PI) % 360) * 0.5}px)` }}>
+            <span>S</span><span>W</span><span>N</span><span>E</span><span>S</span><span>W</span><span>N</span><span>E</span>
           </div>
+          <div className="absolute w-0.5 h-full bg-indigo-500 shadow-[0_0_10px_#6366f1]" />
         </div>
       </div>
 
-      {isMobile && (
-        <div className="absolute inset-0 pointer-events-none z-30">
-          <div className="absolute bottom-10 left-10 w-24 h-24 bg-white/5 backdrop-blur-md rounded-full border border-white/20 flex items-center justify-center pointer-events-auto shadow-2xl" onTouchStart={handleJoystickStart} onTouchMove={handleJoystickMove} onTouchEnd={handleJoystickEnd}>
-            <div className="w-8 h-8 bg-indigo-500 rounded-full border border-white shadow-lg" />
+      {/* Interaction Crosshair */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+        <div className={`w-1 h-1 rounded-full bg-white/50 ${interaction.type !== 'none' ? 'scale-0' : 'scale-100'}`} />
+        {interaction.type !== 'none' && (
+          <div className="flex flex-col items-center animate-in zoom-in fade-in duration-300">
+            <span className="text-4xl mb-2 drop-shadow-lg">
+              {interaction.type === 'tree' ? '🪓' : interaction.type === 'rock' ? '⛏️' : interaction.type === 'campfire' ? '🔥' : '📦'}
+            </span>
+            <div className="bg-black/80 px-4 py-2 rounded-xl border border-white/20 text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
+              {t[interaction.type as keyof typeof t] || interaction.type} (E)
+            </div>
           </div>
-          <div className="absolute bottom-10 right-10 w-24 h-24 bg-white/5 backdrop-blur-md rounded-2xl border border-white/20 flex items-center justify-center pointer-events-auto shadow-2xl" onTouchStart={handleLookStart} onTouchMove={handleLookMove} onTouchEnd={handleLookEnd}>
-            <span className="text-[10px] font-black text-white/30 uppercase tracking-widest">{t.look}</span>
+        )}
+      </div>
+
+      {/* Crafting Modal */}
+      {isCraftingOpen && (
+        <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-2xl flex items-center justify-center pointer-events-auto z-50">
+          <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-white/10 w-[32rem] shadow-2xl animate-in zoom-in duration-300">
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-2xl font-black italic text-indigo-400 tracking-tighter">CRAFTING MENU</h2>
+              <button onClick={() => setIsCraftingOpen(false)} className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center font-bold">×</button>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <CraftItem label={t.campfire} icon="🔥" req="3 Wood, 1 Flint" disabled={!canCraftCampfire} onClick={() => onCraft('campfire')} />
+              <CraftItem label={t.Arrow} icon="🏹" req="1 Wood (5x)" disabled={!canCraftArrow} onClick={() => onCraft('arrows')} />
+              <CraftItem label={t.Bow} icon="🏹" req="3 Wood" disabled={!canCraftBow} onClick={() => onCraft('bow')} />
+              <CraftItem label={t.Torch} icon="🔦" req="1 Wood, 1 Flint" disabled={!canCraftTorch} onClick={() => onCraft('torch')} />
+            </div>
+            <p className="mt-8 text-center text-[10px] text-white/20 font-bold uppercase tracking-widest">Resources: {woodCount} Wood | {flintCount} Flint</p>
           </div>
-          <button onClick={() => setIsCraftingOpen(!isCraftingOpen)} className="absolute bottom-40 left-10 w-12 h-12 bg-orange-600 rounded-xl pointer-events-auto shadow-xl text-xl flex items-center justify-center active:scale-90 transition-transform">🛠️</button>
         </div>
       )}
 
-      <div className="absolute bottom-28 sm:bottom-24 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 sm:gap-1 pointer-events-none">
-        {deltas.map(d => (
-          <div key={d.id} className={`flex items-center gap-3 sm:gap-2 px-4 py-2 sm:px-3 sm:py-1 rounded-full bg-black/80 border border-white/10 shadow-2xl animate-float-up-fade`}>
-            <span className="text-xl sm:text-lg">{d.icon}</span>
-            <span className={`text-sm sm:text-xs font-black ${d.amount > 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {d.amount > 0 ? '+' : ''}{d.amount}
-            </span>
-            <span className="text-[11px] sm:text-[10px] font-bold text-white uppercase tracking-tighter opacity-80">{d.itemName}</span>
+      {/* Bottom bar - Inventory & Mobile Controls */}
+      <div className="flex flex-col items-center gap-6">
+        {isMobile && (
+          <div className="w-full flex justify-between px-6 mb-4">
+            <div className="w-24 h-24 bg-white/5 rounded-full border border-white/10 pointer-events-auto" onTouchStart={handleJoystickStart} onTouchMove={handleJoystickMove} onTouchEnd={handleJoystickEnd} />
+            <button onClick={() => setIsCraftingOpen(true)} className="w-16 h-16 bg-orange-600 rounded-2xl border-4 border-white/20 shadow-xl text-2xl flex items-center justify-center pointer-events-auto active:scale-90 transition-transform">🛠️</button>
+            <div className="w-24 h-24 bg-white/5 rounded-2xl border border-white/10 pointer-events-auto flex items-center justify-center text-[10px] font-black uppercase text-white/20" onTouchStart={handleLookStart} onTouchMove={handleLookMove} onTouchEnd={handleLookEnd}>LOOK</div>
           </div>
-        ))}
-      </div>
+        )}
 
-      <div className="flex flex-col gap-2 z-10 w-full items-center mb-2 sm:mb-2">
-        <div className="bg-black/70 backdrop-blur-xl p-2 sm:p-1.5 rounded-2xl sm:rounded-xl border border-white/5 flex gap-2 sm:gap-1 max-w-[95vw] overflow-x-auto no-scrollbar pointer-events-auto shadow-2xl">
+        <div className="bg-black/60 backdrop-blur-xl p-3 rounded-2xl border border-white/10 flex gap-2 pointer-events-auto overflow-x-auto no-scrollbar max-w-full">
           {inventory.map((item, index) => (
-            <button 
-              key={item.id} 
-              onClick={() => onUseItem(item.id)} 
-              className={`relative min-w-[54px] h-[54px] sm:min-w-[44px] sm:h-[44px] bg-white/5 hover:bg-white/10 active:bg-white/20 rounded-xl sm:rounded-lg border transition-all flex flex-col items-center justify-center ${activeToolId === item.id ? 'border-indigo-500 bg-indigo-500/20' : 'border-white/5'} ${pulseItems[item.name] ? 'animate-bounce-custom border-indigo-400' : ''}`}
-            >
-              {!isMobile && index < 9 && <span className="absolute top-0 left-0.5 text-[8px] font-black text-indigo-400 opacity-50">{index + 1}</span>}
-              <span className="text-2xl sm:text-2xl">
-                {getItemIcon(item.name)}
-              </span>
-              <span className="absolute -top-1.5 -right-1.5 sm:-top-1 sm:-right-1 bg-indigo-600 text-[10px] sm:text-[8px] font-black min-w-[1.2rem] h-5 sm:min-w-[1rem] sm:h-4 px-1 flex items-center justify-center rounded-lg sm:rounded-md shadow-lg border border-white/10">
-                {item.count}
-              </span>
+            <button key={item.id} onClick={() => onUseItem(item.id)} className={`relative min-w-[50px] h-[50px] rounded-xl border flex items-center justify-center text-2xl transition-all ${activeToolId === item.id ? 'bg-indigo-500/30 border-indigo-400' : 'bg-white/5 border-white/5 hover:bg-white/10'} ${pulseItems[item.name] ? 'scale-110' : ''}`}>
+              {!isMobile && <span className="absolute top-0.5 left-1 text-[8px] font-black text-white/30">{index + 1}</span>}
+              {getItemIcon(item.name)}
+              <span className="absolute -top-1.5 -right-1.5 bg-indigo-600 text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-md flex items-center justify-center shadow-lg border border-white/10">{item.count}</span>
             </button>
           ))}
         </div>
       </div>
       
-      <style>{`
-        @keyframes float-up-fade {
-          0% { transform: translateY(20px); opacity: 0; }
-          20% { transform: translateY(0); opacity: 1; }
-          80% { transform: translateY(-20px); opacity: 1; }
-          100% { transform: translateY(-40px); opacity: 0; }
-        }
-        @keyframes bounce-custom {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.15); border-color: #818cf8; }
-        }
-        @keyframes bounce-short {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
-        }
-        @keyframes dizzy { 0%, 100% { filter: blur(0px); } 50% { filter: blur(1.5px); } }
-        .animate-float-up-fade { animation: float-up-fade 2s ease-out forwards; }
-        .animate-bounce-custom { animation: bounce-custom 0.4s ease-out; }
-        .animate-bounce-short { animation: bounce-short 1.5s ease-in-out infinite; }
-        .animate-dizzy { animation: dizzy 8s ease-in-out infinite; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-      `}</style>
+      <style>{`.no-scrollbar::-webkit-scrollbar { display: none; }`}</style>
     </div>
   );
 };

@@ -171,6 +171,8 @@ export const TRANSLATIONS = {
   }
 };
 
+export const MUSIC_URL = 'https://assets.mixkit.co/music/preview/mixkit-mysterious-pensive-722.mp3';
+
 export const SFX_URLS = {
   hunger_critical: 'https://assets.mixkit.co/sfx/preview/mixkit-stomach-growl-1234.mp3',
   thirst_critical: 'https://assets.mixkit.co/sfx/preview/mixkit-dry-swallow-1323.mp3',
