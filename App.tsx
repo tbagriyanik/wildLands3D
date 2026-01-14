@@ -162,11 +162,30 @@ const App: React.FC = () => {
 
       let newStats = { ...prev.stats };
       let consumed = false;
-      if (item.name === 'Apple') { newStats.hunger = Math.min(100, newStats.hunger + 15); consumed = true; }
-      else if (item.name === 'Roasted Apple') { newStats.hunger = Math.min(100, newStats.hunger + 25); consumed = true; }
-      else if (item.name === 'Cooked Meat') { newStats.hunger = Math.min(100, newStats.hunger + 55); consumed = true; }
-      else if (item.name === 'Raw Meat') { newStats.hunger = Math.min(100, newStats.hunger + 12); newStats.health -= 8; consumed = true; }
-      else if (item.name === 'Berries') { newStats.hunger = Math.min(100, newStats.hunger + 10); consumed = true; }
+      if (item.name === 'Apple') { 
+        newStats.hunger = Math.min(100, newStats.hunger + 15); 
+        newStats.thirst = Math.min(100, newStats.thirst + 10); // Susuzluk desteği
+        consumed = true; 
+      }
+      else if (item.name === 'Roasted Apple') { 
+        newStats.hunger = Math.min(100, newStats.hunger + 25); 
+        newStats.thirst = Math.min(100, newStats.thirst + 3); // Pişince azalan ama hala olan su desteği
+        consumed = true; 
+      }
+      else if (item.name === 'Cooked Meat') { 
+        newStats.hunger = Math.min(100, newStats.hunger + 55); 
+        consumed = true; 
+      }
+      else if (item.name === 'Raw Meat') { 
+        newStats.hunger = Math.min(100, newStats.hunger + 12); 
+        newStats.health -= 8; 
+        consumed = true; 
+      }
+      else if (item.name === 'Berries') { 
+        newStats.hunger = Math.min(100, newStats.hunger + 10); 
+        newStats.thirst = Math.min(100, newStats.thirst + 15); // Sulu meyve olduğu için daha çok susuzluk giderir
+        consumed = true; 
+      }
 
       if (consumed) {
         playSFX(SFX_URLS.eat_crunchy);
