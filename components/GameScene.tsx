@@ -1,10 +1,14 @@
 
 import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import * as THREE from 'three';
+import * as THREE from 'this';
+import * as THREE_CORE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import { Sky } from 'three/examples/jsm/objects/Sky';
 import { InteractionTarget, WeatherType, CampfireData, MobileInput } from '../types';
 import { SFX_URLS } from '../constants';
+
+// Note: Using THREE_CORE to avoid ESM import issues with some re-exports if any
+const THREE = THREE_CORE;
 
 interface GameSceneProps {
   onInteract: (target: InteractionTarget) => void;
@@ -69,35 +73,11 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     campfireGroupRef.current.clear();
     campfires.forEach(cf => {
       const group = new THREE.Group(); group.position.set(cf.x, 0, cf.z);
-      
-      const woodMat = new THREE.MeshStandardMaterial({ color: 0x4a2c1d });
-      const wood = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1), woodMat); 
-      wood.rotation.z = Math.PI / 4; 
-      wood.castShadow = true; 
-      wood.receiveShadow = true;
-      group.add(wood);
-      
-      const wood2 = wood.clone(); 
-      wood2.rotation.z = -Math.PI / 4; 
-      group.add(wood2);
-
-      // Enhanced point light for campfire
-      const light = new THREE.PointLight(0xff4500, 15, 15); 
-      light.position.y = 0.6; 
-      light.castShadow = true;
-      // Optimize shadows for performance
-      light.shadow.mapSize.width = 512;
-      light.shadow.mapSize.height = 512;
-      light.shadow.bias = -0.005;
-      light.shadow.radius = 4;
-      group.add(light);
-
-      const fire = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3, 0), new THREE.MeshBasicMaterial({ color: 0xff4500 })); 
-      fire.position.y = 0.3; 
-      group.add(fire);
-      
-      group.userData = { type: 'campfire', id: cf.id, baseIntensity: 15 }; 
-      campfireGroupRef.current.add(group);
+      const wood = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1), new THREE.MeshStandardMaterial({ color: 0x4a2c1d })); wood.rotation.z = Math.PI / 4; group.add(wood);
+      const wood2 = wood.clone(); wood2.rotation.z = -Math.PI / 4; group.add(wood2);
+      const light = new THREE.PointLight(0xff4500, 15, 12); light.position.y = 0.5; group.add(light);
+      const fire = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3, 0), new THREE.MeshBasicMaterial({ color: 0xff4500 })); fire.position.y = 0.3; group.add(fire);
+      group.userData = { type: 'campfire', id: cf.id }; campfireGroupRef.current.add(group);
     });
   }, [campfires]);
 
@@ -205,28 +185,13 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     if (initialRotation !== undefined) { camera.rotation.y = initialRotation; }
     
     cameraRef.current = camera;
-    const torchLight = new THREE.PointLight(0xffaa55, 10, 25); 
-    torchLight.visible = false; 
-    torchLight.castShadow = true;
-    torchLight.shadow.mapSize.width = 256;
-    torchLight.shadow.mapSize.height = 256;
-    camera.add(torchLight); 
-    scene.add(camera);
+    const torchLight = new THREE.PointLight(0xffaa55, 10, 25); torchLight.visible = false; camera.add(torchLight); scene.add(camera);
     torchLightRef.current = torchLight;
-
     const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(window.innerWidth, window.innerHeight); renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Smoother shadows
     mountRef.current.appendChild(renderer.domElement);
-    
     const sky = new Sky(); sky.scale.setScalar(450000); scene.add(sky); skyRef.current = sky;
     const sunLight = new THREE.DirectionalLight(0xfffaf0, 1.5); sunLight.castShadow = true;
-    sunLight.shadow.mapSize.set(2048, 2048); // High quality sun shadows
-    sunLight.shadow.camera.left = -100;
-    sunLight.shadow.camera.right = 100;
-    sunLight.shadow.camera.top = 100;
-    sunLight.shadow.camera.bottom = -100;
-    scene.add(sunLight); sunLightRef.current = sunLight;
-    
+    sunLight.shadow.mapSize.set(1024, 1024); scene.add(sunLight); sunLightRef.current = sunLight;
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.4); scene.add(ambientLight); ambientLightRef.current = ambientLight;
     const grassTex = textureLoader.load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg'); grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping; grassTex.repeat.set(250, 250);
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(3500, 3500), new THREE.MeshStandardMaterial({ map: grassTex })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
@@ -246,38 +211,19 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     const createFoliage = (x: number, z: number, type: string) => {
       const g = new THREE.Group(); g.position.set(x, 0, z);
       if (type === 'tree') {
-        const h = 7 + Math.random() * 5; 
-        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.25, h), new THREE.MeshStandardMaterial({ color: 0x4a2c1d }));
-        trunk.castShadow = true;
-        trunk.receiveShadow = true;
-        g.add(trunk);
-        const leaves = new THREE.Mesh(new THREE.ConeGeometry(2, 6, 8), new THREE.MeshStandardMaterial({ color: 0x0a3d0a })); 
-        leaves.position.y = h/2; 
-        leaves.castShadow = true;
-        g.add(leaves); 
-        g.userData = { type, isObstacle: true, radius: 1.2 };
+        const h = 7 + Math.random() * 5; g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.25, h), new THREE.MeshStandardMaterial({ color: 0x4a2c1d })));
+        const leaves = new THREE.Mesh(new THREE.ConeGeometry(2, 6, 8), new THREE.MeshStandardMaterial({ color: 0x0a3d0a })); leaves.position.y = h/2; g.add(leaves); g.userData = { type, isObstacle: true, radius: 1.2 };
       } else if (type === 'appleTree') {
-        const h = 5 + Math.random() * 3; 
-        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, h), new THREE.MeshStandardMaterial({ color: 0x4a2c1d }));
-        trunk.castShadow = true;
-        trunk.receiveShadow = true;
-        g.add(trunk);
-        const canopy = new THREE.Mesh(new THREE.IcosahedronGeometry(2, 1), new THREE.MeshStandardMaterial({ color: 0x1a5a1a })); 
-        canopy.position.y = h/2 + 0.5; 
-        canopy.castShadow = true;
-        g.add(canopy);
+        const h = 5 + Math.random() * 3; g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, h), new THREE.MeshStandardMaterial({ color: 0x4a2c1d })));
+        const canopy = new THREE.Mesh(new THREE.IcosahedronGeometry(2, 1), new THREE.MeshStandardMaterial({ color: 0x1a5a1a })); canopy.position.y = h/2 + 0.5; g.add(canopy);
         for(let j=0; j<8; j++) {
             const apple = new THREE.Mesh(new THREE.SphereGeometry(0.15), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
             apple.position.set((Math.random()-0.5)*3, h/2 + (Math.random()*2), (Math.random()-0.5)*3);
-            apple.castShadow = true;
             g.add(apple);
         }
         g.userData = { type, isObstacle: true, radius: 1.5 };
       } else if (type === 'bush') {
-        const canopy = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0x2d5a27 })); 
-        canopy.position.y = 0.5; 
-        canopy.castShadow = true;
-        g.add(canopy);
+        const canopy = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0x2d5a27 })); canopy.position.y = 0.5; g.add(canopy);
         for(let j=0; j<6; j++) {
             const berry = new THREE.Mesh(new THREE.SphereGeometry(0.1), new THREE.MeshStandardMaterial({ color: 0x8b008b }));
             berry.position.set((Math.random()-0.5)*1.5, 0.5 + (Math.random()*0.5), (Math.random()-0.5)*1.5);
@@ -285,13 +231,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
         }
         g.userData = { type, isObstacle: true, radius: 0.8 };
       } else if (type === 'rock') {
-        const s = 1 + Math.random()*2; 
-        const r = new THREE.Mesh(new THREE.DodecahedronGeometry(s), new THREE.MeshStandardMaterial({ color: 0x777777 })); 
-        r.position.y = s*0.4; 
-        r.castShadow = true;
-        r.receiveShadow = true;
-        g.add(r); 
-        g.userData = { type, isObstacle: true, radius: s*0.9 };
+        const s = 1 + Math.random()*2; const r = new THREE.Mesh(new THREE.DodecahedronGeometry(s), new THREE.MeshStandardMaterial({ color: 0x777777 })); r.position.y = s*0.4; g.add(r); g.userData = { type, isObstacle: true, radius: s*0.9 };
       }
       scene.add(g); worldObjectsRef.current.push(g);
     };
@@ -337,60 +277,10 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     });
 
     const interactionRaycaster = new THREE.Raycaster();
-    
-    // Ambient sound manager
-    let nextAmbientTime = Date.now() + 10000 + Math.random() * 20000;
-    
     const animate = () => {
         requestAnimationFrame(animate);
         const delta = 0.016;
-        const now = Date.now();
-        const { isMobile, mobileInput, isLocked, isCraftingOpen, time, sfxEnabled } = propsRef.current;
-        
-        // Periodic ambient wildlife sounds
-        if (now > nextAmbientTime) {
-          const isDay = time > 500 && time < 1900;
-          if (isDay) {
-            const ambientUrl = Math.random() > 0.4 ? SFX_URLS.bird_ambient : SFX_URLS.squirrel_ambient;
-            playSFX(ambientUrl, 0.2 + Math.random() * 0.2);
-          }
-          nextAmbientTime = now + 15000 + Math.random() * 30000;
-        }
-
-        // Campfire Realistic Flickering & Shadow Effects
-        campfireGroupRef.current.children.forEach(c => {
-          const light = c.children.find(child => child instanceof THREE.PointLight) as THREE.PointLight;
-          const fire = c.children.find(child => child instanceof THREE.Mesh && child.geometry instanceof THREE.IcosahedronGeometry) as THREE.Mesh;
-          if (light) {
-            // High-frequency flicker + random base intensity shift
-            const flicker = Math.random() * 0.4 + 0.8;
-            light.intensity = c.userData.baseIntensity * flicker;
-            
-            // Jitter the light position slightly for more realistic shadow movement
-            light.position.x = Math.sin(now * 0.01) * 0.05;
-            light.position.z = Math.cos(now * 0.01) * 0.05;
-
-            // Slightly shift the light color between orange and red
-            light.color.setHSL(0.08 + Math.random() * 0.02, 1, 0.5);
-          }
-          if (fire) {
-            // Fire pulsates with the flickering light
-            const s = 1.0 + Math.sin(now * 0.015) * 0.1 + Math.random() * 0.15;
-            fire.scale.set(s, s * 1.2, s);
-            fire.rotation.y += delta * 5;
-          }
-        });
-
-        // Torch Flickering
-        if (torchLightRef.current && torchLightRef.current.visible) {
-            torchLightRef.current.intensity = 10 * (0.85 + Math.random() * 0.3);
-            torchLightRef.current.position.set(
-              Math.sin(now * 0.02) * 0.02,
-              Math.cos(now * 0.02) * 0.02,
-              0
-            );
-        }
-
+        const { isMobile, mobileInput, isLocked, isCraftingOpen, time } = propsRef.current;
         if (isLocked && cameraRef.current) {
           interactionRaycaster.setFromCamera(new THREE.Vector2(0,0), cameraRef.current);
           const iTs = [...worldObjectsRef.current, ...campfireGroupRef.current.children, ...critterGroupRef.current.children].filter(o => o.visible && o.position.distanceTo(cameraRef.current!.position) < 10);
@@ -500,9 +390,6 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
           const intensity = Math.max(0, Math.sin(phi)); sunLightRef.current!.intensity = intensity * 1.5; ambientLightRef.current!.intensity = 0.1 + intensity * 0.4;
           const fogColor = new THREE.Color().setHSL(0.6, 0.2, 0.05 + intensity * 0.1); if(scene.fog instanceof THREE.Fog) scene.fog.color.copy(fogColor);
           renderer.setClearColor(fogColor);
-          
-          // Move sun to follow camera (simulating distant sun)
-          sunLightRef.current!.position.copy(sunPos).multiplyScalar(100).add(camera.position);
         }
         const camDir = new THREE.Vector3(); camera.getWorldDirection(camDir);
         propsRef.current.onPositionUpdate({ x: camera.position.x, y: camera.position.y, z: camera.position.z, dirX: camDir.x, dirZ: camDir.z });
