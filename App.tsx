@@ -2,11 +2,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import GameScene, { GameSceneHandle } from './components/GameScene';
 import UIOverlay from './components/UIOverlay';
-import AIAdvisor from './components/AIAdvisor';
 import { GameState, InteractionTarget, MobileInput, InventoryItem } from './types';
 import { INITIAL_STATS, SURVIVAL_DECAY_RATES, TRANSLATIONS, SFX_URLS, MUSIC_URL, ITEM_LIMITS } from './constants';
 
-const SAVE_KEY = 'wildlands_survival_v29';
+const SAVE_KEY = 'wildlands_survival_v30';
 
 const ITEM_PRIORITY: Record<string, number> = {
   'Bow': 100,
@@ -176,6 +175,8 @@ const App: React.FC = () => {
       if (waterskinIdx !== -1) {
         newInv[waterskinIdx] = { ...newInv[waterskinIdx], name: 'Waterskin (Full)' };
         addNotification(t.WaterskinFull, '🍶');
+      } else {
+        addNotification(t.thirst, '💧');
       }
       playSFX(SFX_URLS.drink_swallow);
       return { ...prev, stats: { ...prev.stats, thirst: Math.min(100, prev.stats.thirst + 20) }, inventory: sortInventory(newInv) };
@@ -200,7 +201,6 @@ const App: React.FC = () => {
     });
   }, [t]);
 
-  // Otomatik Konum ve Rotasyon Kaydı (Her 3 saniyede bir)
   useEffect(() => {
     if (view !== 'game') return;
     const interval = setInterval(() => {
@@ -209,7 +209,7 @@ const App: React.FC = () => {
         playerPosition: { x: playerInfoRef.current.x, y: playerInfoRef.current.y, z: playerInfoRef.current.z },
         playerRotation: playerRotation
       }));
-    }, 3000);
+    }, 2000); // 2 saniyede bir kaydet
     return () => clearInterval(interval);
   }, [view, playerRotation]);
 
@@ -339,15 +339,17 @@ const App: React.FC = () => {
         activeToolId={activeToolId} onMobileInput={setMobileInput} isMobile={isMobile} onCook={() => handleUseItem('campfire')} cookingItem={null} 
         isHungerCritical={gameState.stats.hunger < 20} isThirstCritical={gameState.stats.thirst < 20} isWarmingUp={isWarmingUp} showTodoList={true} 
       />
-      <div className="fixed top-8 right-8 z-[200] flex flex-col gap-2 pointer-events-none">
+      
+      {/* Notifications - Sol Alt Bölge */}
+      <div className="fixed bottom-32 left-8 z-[200] flex flex-col-reverse gap-2 pointer-events-none">
         {notifications.map(n => (
-          <div key={n.id} className="bg-indigo-600/90 backdrop-blur-xl px-4 py-2 rounded-xl border border-white/20 shadow-2xl animate-in slide-in-from-right flex items-center gap-3">
+          <div key={n.id} className="bg-indigo-600/90 backdrop-blur-xl px-4 py-2 rounded-xl border border-white/20 shadow-2xl animate-in slide-in-from-left flex items-center gap-3">
              <span className="text-xl">{n.icon}</span>
              <span className="text-[10px] font-black uppercase tracking-widest">{n.text} {t.collected}</span>
           </div>
         ))}
       </div>
-      <AIAdvisor gameState={gameState} />
+
       {view === 'menu' && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-2xl pointer-events-auto">
           <div className="mb-12 text-center animate-in zoom-in-95 duration-700">

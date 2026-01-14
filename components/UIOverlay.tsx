@@ -102,12 +102,12 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   };
 
   const StatBar = ({ label, value, color, pulse = false, icon = null }: { label: string, value: number, color: string, pulse?: boolean, icon?: React.ReactNode }) => (
-    <div className={`mb-3 w-full group ${pulse ? 'animate-pulse' : ''}`}>
-      <div className="flex justify-between items-center text-[9px] font-black text-white/50 group-hover:text-white transition-colors uppercase tracking-widest mb-1 px-1">
+    <div className={`mb-2 w-full group ${pulse ? 'animate-pulse' : ''}`}>
+      <div className="flex justify-between items-center text-[8px] font-black text-white/50 group-hover:text-white transition-colors uppercase tracking-widest mb-0.5 px-1">
         <div className="flex items-center gap-1">{icon}<span>{label}</span></div>
         <span className="tabular-nums">{Math.round(value)}%</span>
       </div>
-      <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden backdrop-blur-md border border-white/5">
+      <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden backdrop-blur-md border border-white/5">
         <div className="h-full transition-all duration-700 ease-out" style={{ width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: color, boxShadow: `0 0 10px ${color}80` }} />
       </div>
     </div>
@@ -125,10 +125,10 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
     <div className={`absolute inset-0 pointer-events-none z-20 flex flex-col justify-between p-8 transition-opacity duration-700 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
       
       <div className="flex justify-between items-start">
-        <div className="bg-slate-950/40 backdrop-blur-2xl p-6 rounded-[2rem] border border-white/10 w-48 pointer-events-auto shadow-2xl">
-          <div className="flex justify-between items-center text-[10px] text-indigo-400 font-black mb-4 border-b border-white/5 pb-3">
+        <div className="bg-slate-950/40 backdrop-blur-2xl p-4 rounded-[1.5rem] border border-white/10 w-44 pointer-events-auto shadow-2xl">
+          <div className="flex justify-between items-center text-[10px] text-indigo-400 font-black mb-2 border-b border-white/5 pb-2">
              <span>{t.day} {gameState.day}</span>
-             <span className="bg-indigo-500/20 px-2 py-0.5 rounded-full">{formatTime(time)}</span>
+             <span className="bg-indigo-500/20 px-1.5 py-0.5 rounded-full text-[8px]">{formatTime(time)}</span>
           </div>
           <StatBar label={t.health} value={stats.health} color={COLORS.health} pulse={stats.health < 25} />
           <StatBar label={t.hunger} value={stats.hunger} color={COLORS.hunger} pulse={isHungerCritical} />
@@ -172,7 +172,11 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
 
         <div className="bg-slate-950/60 backdrop-blur-3xl p-4 rounded-[2.5rem] border border-white/10 flex gap-3 pointer-events-auto overflow-x-auto no-scrollbar max-w-[90vw] shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
           {inventory.map((item, index) => (
-            <button key={item.id} onClick={() => onUseItem(item.id)} className={`relative min-w-[64px] h-[64px] rounded-2xl border transition-all duration-300 flex items-center justify-center text-3xl ${activeToolId === item.id ? 'bg-indigo-500/40 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-white/5 border-white/5'} ${popItem === item.id ? 'scale-125' : 'scale-100'} hover:bg-white/10`}>
+            <button key={item.id} onClick={() => onUseItem(item.id)} className={`relative min-w-[64px] h-[64px] rounded-2xl border transition-all duration-300 flex items-center justify-center text-3xl ${activeToolId === item.id ? 'bg-indigo-500/40 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-white/5 border-white/5'} ${popItem === item.id ? 'scale-125' : 'scale-100'} hover:bg-white/10 group`}>
+              {/* Hotkey Number (1-9) */}
+              {!isMobile && index < 9 && (
+                <span className="absolute top-1 left-2 text-[10px] font-black text-white/30 group-hover:text-white/80 transition-colors uppercase tracking-widest">{index + 1}</span>
+              )}
               {getItemIcon(item.name)}
               <span className="absolute -bottom-2 -right-2 bg-indigo-600 text-[11px] font-black min-w-[22px] h-[22px] rounded-xl flex items-center justify-center border border-white/10 shadow-lg">{item.count}</span>
             </button>

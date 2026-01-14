@@ -1,10 +1,14 @@
 
 import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import * as THREE from 'three';
+import * as THREE from 'this';
+import * as THREE_CORE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import { Sky } from 'three/examples/jsm/objects/Sky';
 import { InteractionTarget, WeatherType, CampfireData, MobileInput } from '../types';
 import { SFX_URLS } from '../constants';
+
+// Note: Using THREE_CORE to avoid ESM import issues with some re-exports if any
+const THREE = THREE_CORE;
 
 interface GameSceneProps {
   onInteract: (target: InteractionTarget) => void;
@@ -128,11 +132,8 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
     scene.add(critterGroupRef.current); scene.add(campfireGroupRef.current);
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3000);
     
-    // Konum ve rotasyonu kayıttan yükle
     camera.position.set(initialPosition?.x || 120, initialPosition?.y || 1.8, initialPosition?.z || 120);
-    if (initialRotation !== undefined) {
-      camera.rotation.y = initialRotation;
-    }
+    if (initialRotation !== undefined) { camera.rotation.y = initialRotation; }
     
     cameraRef.current = camera;
     const torchLight = new THREE.PointLight(0xffaa55, 10, 25); torchLight.visible = false; camera.add(torchLight); scene.add(camera);
@@ -163,15 +164,39 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
       if (type === 'tree') {
         const h = 7 + Math.random() * 5; g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.25, h), new THREE.MeshStandardMaterial({ color: 0x4a2c1d })));
         const leaves = new THREE.Mesh(new THREE.ConeGeometry(2, 6, 8), new THREE.MeshStandardMaterial({ color: 0x0a3d0a })); leaves.position.y = h/2; g.add(leaves); g.userData = { type, isObstacle: true, radius: 1.2 };
+      } else if (type === 'appleTree') {
+        const h = 5 + Math.random() * 3; g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, h), new THREE.MeshStandardMaterial({ color: 0x4a2c1d })));
+        const canopy = new THREE.Mesh(new THREE.IcosahedronGeometry(2, 1), new THREE.MeshStandardMaterial({ color: 0x1a5a1a })); canopy.position.y = h/2 + 0.5; g.add(canopy);
+        for(let j=0; j<8; j++) {
+            const apple = new THREE.Mesh(new THREE.SphereGeometry(0.15), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
+            apple.position.set((Math.random()-0.5)*3, h/2 + (Math.random()*2), (Math.random()-0.5)*3);
+            g.add(apple);
+        }
+        g.userData = { type, isObstacle: true, radius: 1.5 };
+      } else if (type === 'bush') {
+        const canopy = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0x2d5a27 })); canopy.position.y = 0.5; g.add(canopy);
+        for(let j=0; j<6; j++) {
+            const berry = new THREE.Mesh(new THREE.SphereGeometry(0.1), new THREE.MeshStandardMaterial({ color: 0x8b008b }));
+            berry.position.set((Math.random()-0.5)*1.5, 0.5 + (Math.random()*0.5), (Math.random()-0.5)*1.5);
+            g.add(berry);
+        }
+        g.userData = { type, isObstacle: true, radius: 0.8 };
       } else if (type === 'rock') {
         const s = 1 + Math.random()*2; const r = new THREE.Mesh(new THREE.DodecahedronGeometry(s), new THREE.MeshStandardMaterial({ color: 0x777777 })); r.position.y = s*0.4; g.add(r); g.userData = { type, isObstacle: true, radius: s*0.9 };
       }
       scene.add(g); worldObjectsRef.current.push(g);
     };
 
-    for(let i=0; i<2800; i++) {
-      const x = (Math.random()-0.5)*2500, z = (Math.random()-0.5)*2500;
-      if (Math.sqrt(x*x+z*z) > 55) createFoliage(x, z, Math.random() > 0.3 ? 'tree' : 'rock');
+    for(let i=0; i<3500; i++) {
+      const x = (Math.random()-0.5)*2800, z = (Math.random()-0.5)*2800;
+      if (Math.sqrt(x*x+z*z) > 55) {
+          const rng = Math.random();
+          let type = 'tree';
+          if (rng < 0.2) type = 'rock';
+          else if (rng < 0.35) type = 'appleTree';
+          else if (rng < 0.5) type = 'bush';
+          createFoliage(x, z, type);
+      }
     }
 
     const controls = new PointerLockControls(camera, renderer.domElement); controlsRef.current = controls;
