@@ -103,13 +103,13 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   };
 
   const StatBar = ({ label, value, color, pulse = false, icon = null }: { label: string, value: number, color: string, pulse?: boolean, icon?: React.ReactNode }) => (
-    <div className={`mb-2 w-full group ${pulse ? 'animate-pulse' : ''}`}>
-      <div className="flex justify-between items-center text-[8px] font-black text-black/60 group-hover:text-black transition-colors uppercase tracking-widest mb-0.5 px-1">
+    <div className={`mb-1.5 w-full group ${pulse ? 'animate-pulse' : ''}`}>
+      <div className="flex justify-between items-center text-[7px] font-black text-black/70 group-hover:text-black transition-colors uppercase tracking-widest mb-0.5 px-0.5">
         <div className="flex items-center gap-1">{icon}<span>{label}</span></div>
         <span className="tabular-nums">{Math.round(value)}%</span>
       </div>
-      <div className="w-full h-1 bg-black/10 rounded-full overflow-hidden backdrop-blur-md border border-black/5">
-        <div className="h-full transition-all duration-700 ease-out" style={{ width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: color, boxShadow: `0 0 10px ${color}80` }} />
+      <div className="w-full h-1 bg-black/10 rounded-full overflow-hidden border border-black/5">
+        <div className="h-full transition-all duration-700 ease-out" style={{ width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: color, boxShadow: `0 0 8px ${color}60` }} />
       </div>
     </div>
   );
@@ -123,11 +123,12 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   );
 
   return (
-    <div className={`absolute inset-0 pointer-events-none z-20 flex flex-col justify-between p-8 transition-opacity duration-700 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+    <div className={`absolute inset-0 pointer-events-none z-20 flex flex-col justify-between p-4 sm:p-8 transition-opacity duration-700 ${isVisible ? 'opacity-100' : 'opacity-0'} responsive-ui`}>
       
-      <div className="flex justify-between items-start">
-        <div className="bg-white/80 backdrop-blur-2xl p-4 rounded-[1.5rem] border border-black/10 w-44 pointer-events-auto shadow-2xl">
-          <div className="flex justify-between items-center text-[10px] text-black font-black mb-2 border-b border-black/10 pb-2">
+      {/* Üst Panel: Gün, Pusula, Dil */}
+      <div className="flex flex-col sm:flex-row justify-between items-center sm:items-start gap-4 w-full">
+        <div className="top-left-stats bg-white/60 backdrop-blur-xl p-3 sm:p-4 rounded-[1.2rem] sm:rounded-[1.5rem] border border-white/40 w-full sm:w-44 pointer-events-auto shadow-xl">
+          <div className="flex justify-between items-center text-[9px] sm:text-[10px] text-black font-black mb-2 border-b border-black/10 pb-2">
              <span>{t.day} {gameState.day}</span>
              <span className="bg-black/10 px-1.5 py-0.5 rounded-full text-[8px]">{formatTime(time)}</span>
           </div>
@@ -137,71 +138,72 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
           <StatBar label={t.temp} value={stats.temperature} color={COLORS.temperature} pulse={isWarmingUp} icon={isWarmingUp ? "🔥" : null} />
         </div>
 
-        <div className="flex items-center gap-2 pointer-events-auto">
-          <div className="relative w-64 h-12 bg-white/80 backdrop-blur-md rounded-2xl border border-black/10 flex items-center justify-center overflow-hidden shadow-2xl">
-            <div className="absolute w-[400%] flex justify-around text-[11px] font-black tracking-[0.4em] text-black" style={{ transform: `translateX(${-((playerRotation * 180 / Math.PI) % 360)}px)` }}>
+        <div className="top-right-controls flex items-center gap-2 pointer-events-auto w-full sm:w-auto justify-center">
+          <div className="relative flex-grow sm:flex-grow-0 w-full sm:w-64 h-10 sm:h-12 bg-white/60 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-white/40 flex items-center justify-center overflow-hidden shadow-xl">
+            <div className="absolute w-[400%] flex justify-around text-[10px] sm:text-[11px] font-black tracking-[0.4em] text-black" style={{ transform: `translateX(${-((playerRotation * 180 / Math.PI) % 360)}px)` }}>
               <span>S</span><span>W</span><span>N</span><span>E</span><span>S</span><span>W</span><span>N</span><span>E</span>
             </div>
-            <div className="absolute w-0.5 h-6 bg-indigo-500 z-10" />
+            <div className="absolute w-0.5 h-5 sm:h-6 bg-indigo-600 z-10" />
           </div>
           <button 
             onClick={onToggleLanguage}
-            className="w-12 h-12 bg-white/80 backdrop-blur-md rounded-2xl border border-black/10 flex items-center justify-center text-[10px] font-black text-black hover:bg-black/10 transition-colors uppercase tracking-widest shadow-2xl"
+            className="w-10 h-10 sm:w-12 sm:h-12 bg-white/60 backdrop-blur-xl rounded-xl sm:rounded-2xl border border-white/40 flex items-center justify-center text-[9px] sm:text-[10px] font-black text-black hover:bg-white/40 active:scale-95 transition-all uppercase tracking-widest shadow-xl"
           >
             {settings.language}
           </button>
         </div>
       </div>
 
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-        <div className={`transition-all duration-300 ${interaction.type !== 'none' ? 'scale-150' : 'scale-100'}`}>
-          <div className={`relative flex items-center justify-center transition-all ${interaction.type !== 'none' ? 'w-16 h-16 bg-white/10 rounded-full border border-white/40 shadow-[0_0_30px_rgba(255,255,255,0.1)]' : 'w-2 h-2 bg-white/60 rounded-full'}`}>
-            <span className={`text-2xl drop-shadow-2xl ${interaction.type !== 'none' ? 'opacity-100' : 'opacity-0'}`}>{getInteractionIcon(interaction.type)}</span>
+      {/* Orta Etkileşim İkonu */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10">
+        <div className={`transition-all duration-300 ${interaction.type !== 'none' ? 'scale-125 sm:scale-150' : 'scale-100'}`}>
+          <div className={`relative flex items-center justify-center transition-all ${interaction.type !== 'none' ? 'w-12 h-12 sm:w-16 sm:h-16 bg-white/10 rounded-full border border-white/40 shadow-lg' : 'w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white/60 rounded-full'}`}>
+            <span className={`text-xl sm:text-2xl drop-shadow-2xl ${interaction.type !== 'none' ? 'opacity-100' : 'opacity-0'}`}>{getInteractionIcon(interaction.type)}</span>
           </div>
           {interaction.type !== 'none' && (
-            <div className="mt-4 bg-indigo-600/90 backdrop-blur-md px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest animate-in slide-in-from-bottom-2 shadow-2xl">
+            <div className="mt-3 bg-indigo-600/90 backdrop-blur-md px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[8px] sm:text-[10px] font-black uppercase tracking-widest animate-in slide-in-from-bottom-2 shadow-2xl text-white">
               {t[interaction.type as keyof typeof t] || interaction.type}
             </div>
           )}
         </div>
       </div>
 
-      <div className="flex flex-col items-center gap-8">
+      {/* Alt Panel: Joystick ve Envanter */}
+      <div className="flex flex-col items-center gap-4 sm:gap-8 w-full">
         {isMobile && (
-          <div className="w-full flex justify-between px-8 mb-4 items-end pointer-events-none">
-            <div className="w-36 h-36 bg-white/5 backdrop-blur-xl rounded-full border border-white/10 pointer-events-auto flex items-center justify-center" onTouchStart={handleJoystickStart} onTouchMove={handleJoystickMove} onTouchEnd={handleJoystickEnd}>
-               <div className="w-14 h-14 bg-indigo-500/40 rounded-full" />
+          <div className="mobile-controls-row w-full flex justify-between px-4 sm:px-8 items-end pointer-events-none mb-2">
+            <div className="joystick-container w-28 h-28 sm:w-36 sm:h-36 bg-white/10 backdrop-blur-xl rounded-full border border-white/20 pointer-events-auto flex items-center justify-center shadow-2xl" onTouchStart={handleJoystickStart} onTouchMove={handleJoystickMove} onTouchEnd={handleJoystickEnd}>
+               <div className="w-10 h-10 sm:w-14 sm:h-14 bg-indigo-500/40 rounded-full border border-indigo-400/50" />
             </div>
-            <div className="flex flex-col gap-4 pointer-events-auto">
-               <button onClick={() => setIsCraftingOpen(true)} className="w-20 h-20 bg-amber-500 rounded-3xl text-3xl flex items-center justify-center active:scale-90 shadow-xl">🛠️</button>
-               <button onTouchStart={() => onMobileInput(prev => ({ ...prev, jump: true }))} onTouchEnd={() => onMobileInput(prev => ({ ...prev, jump: false }))} className="w-24 h-24 bg-indigo-600 rounded-full text-3xl flex items-center justify-center active:scale-90 shadow-xl">⬆️</button>
+            <div className="mobile-buttons flex flex-col gap-3 sm:gap-4 pointer-events-auto">
+               <button onClick={() => setIsCraftingOpen(true)} className="w-14 h-14 sm:w-20 sm:h-20 bg-amber-500/90 backdrop-blur-md rounded-2xl sm:rounded-3xl text-2xl sm:text-3xl flex items-center justify-center active:scale-90 shadow-xl border border-white/20">🛠️</button>
+               <button onTouchStart={() => onMobileInput(prev => ({ ...prev, jump: true }))} onTouchEnd={() => onMobileInput(prev => ({ ...prev, jump: false }))} className="w-16 h-16 sm:w-24 sm:h-24 bg-indigo-600/90 backdrop-blur-md rounded-full text-2xl sm:text-3xl flex items-center justify-center active:scale-90 shadow-xl border border-white/20">⬆️</button>
             </div>
           </div>
         )}
 
-        <div className="bg-slate-950/60 backdrop-blur-3xl p-4 rounded-[2.5rem] border border-white/10 flex gap-3 pointer-events-auto overflow-x-auto no-scrollbar max-w-[90vw] shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
+        <div className="inventory-bar bg-slate-950/60 backdrop-blur-3xl p-3 sm:p-4 rounded-[1.8rem] sm:rounded-[2.5rem] border border-white/10 flex gap-2 sm:gap-3 pointer-events-auto overflow-x-auto no-scrollbar max-w-full sm:max-w-[90vw] shadow-[0_15px_50px_rgba(0,0,0,0.7)]">
           {inventory.map((item, index) => (
-            <button key={item.id} onClick={() => onUseItem(item.id)} className={`relative min-w-[64px] h-[64px] rounded-2xl border transition-all duration-300 flex items-center justify-center text-3xl ${activeToolId === item.id ? 'bg-indigo-500/40 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-white/5 border-white/5'} ${popItem === item.id ? 'scale-125' : 'scale-100'} hover:bg-white/10 group`}>
-              {/* Hotkey Number (1-9) */}
+            <button key={item.id} onClick={() => onUseItem(item.id)} className={`relative min-w-[50px] sm:min-w-[64px] h-[50px] sm:h-[64px] rounded-xl sm:rounded-2xl border transition-all duration-300 flex items-center justify-center text-2xl sm:text-3xl ${activeToolId === item.id ? 'bg-indigo-500/40 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-white/5 border-white/5'} ${popItem === item.id ? 'scale-110 sm:scale-125' : 'scale-100'} hover:bg-white/10 group`}>
               {!isMobile && index < 9 && (
-                <span className="absolute top-1 left-2 text-[10px] font-black text-white/30 group-hover:text-white/80 transition-colors uppercase tracking-widest">{index + 1}</span>
+                <span className="absolute top-1 left-2 text-[8px] sm:text-[10px] font-black text-white/30 group-hover:text-white/80 transition-colors uppercase tracking-widest">{index + 1}</span>
               )}
               {getItemIcon(item.name)}
-              <span className="absolute -bottom-2 -right-2 bg-indigo-600 text-[11px] font-black min-w-[22px] h-[22px] rounded-xl flex items-center justify-center border border-white/10 shadow-lg">{item.count}</span>
+              <span className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 bg-indigo-600 text-[9px] sm:text-[11px] font-black min-w-[18px] sm:min-w-[22px] h-[18px] sm:h-[22px] rounded-lg sm:rounded-xl flex items-center justify-center border border-white/10 shadow-lg text-white">{item.count}</span>
             </button>
           ))}
-          {inventory.length === 0 && <span className="px-6 py-4 text-white/20 font-black italic tracking-widest text-sm uppercase">{t.emptyInventory}</span>}
+          {inventory.length === 0 && <span className="px-4 sm:px-6 py-3 sm:py-4 text-white/20 font-black italic tracking-widest text-[10px] sm:text-sm uppercase whitespace-nowrap">{t.emptyInventory}</span>}
         </div>
       </div>
 
       {isCraftingOpen && (
-        <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-3xl flex items-center justify-center pointer-events-auto z-50 animate-in fade-in">
-          <div className="bg-slate-900/60 p-10 rounded-[3rem] border border-white/10 w-[40rem] shadow-2xl overflow-hidden relative">
-            <div className="flex justify-between items-center mb-10">
-              <h2 className="text-3xl font-black italic tracking-tighter text-indigo-400">CRAFTING</h2>
-              <button onClick={() => setIsCraftingOpen(false)} className="text-4xl font-bold hover:text-red-500 transition-colors">×</button>
+        <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-3xl flex items-center justify-center pointer-events-auto z-50 animate-in fade-in p-4">
+          <div className="bg-slate-900/60 p-6 sm:p-10 rounded-[2rem] sm:rounded-[3rem] border border-white/10 w-full max-w-[40rem] shadow-2xl overflow-hidden relative max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div className="flex justify-between items-center mb-6 sm:mb-10">
+              <h2 className="text-2xl sm:text-3xl font-black italic tracking-tighter text-indigo-400 uppercase">ÜRETİM</h2>
+              <button onClick={() => setIsCraftingOpen(false)} className="text-3xl sm:text-4xl font-bold hover:text-red-500 transition-colors">×</button>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
               <CraftItem label={t.campfire} icon="🔥" req="3 Wood, 1 Flint" disabled={!canCraftCampfire} onClick={() => onCraft('campfire')} />
               <CraftItem label={t.Arrow} icon="🏹" req="1 Wood (5x)" disabled={!canCraftArrow} onClick={() => onCraft('arrows')} />
               <CraftItem label={t.Bow} icon="🏹" req="3 Wood" disabled={!canCraftBow} onClick={() => onCraft('bow')} />
@@ -214,7 +216,22 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
       
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.25); } 100% { transform: scale(1); } }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        
+        /* Mobil Oryantasyon Uyumluluğu */
+        @media (orientation: portrait) {
+          .top-left-stats { width: 100% !important; max-width: 250px; }
+          .top-right-controls { width: 100% !important; margin-top: 0.5rem; }
+          .inventory-bar { padding: 0.5rem !important; border-radius: 1.5rem !important; }
+        }
+        
+        @media (max-width: 640px) {
+          .responsive-ui { padding: 1rem !important; }
+        }
+        
+        @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
       `}</style>
     </div>
   );
