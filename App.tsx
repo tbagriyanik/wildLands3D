@@ -4,13 +4,15 @@ import GameScene, { GameSceneHandle } from './components/GameScene';
 import UIOverlay from './components/UIOverlay';
 import AIAdvisor from './components/AIAdvisor';
 import { GameState, InteractionTarget, MobileInput, InventoryItem } from './types';
-import { INITIAL_STATS, SURVIVAL_DECAY_RATES, TRANSLATIONS, SFX_URLS, MUSIC_URL } from './constants';
+import { INITIAL_STATS, SURVIVAL_DECAY_RATES, TRANSLATIONS, SFX_URLS, MUSIC_URL, ITEM_LIMITS } from './constants';
 
-const SAVE_KEY = 'wildlands_survival_v27';
+const SAVE_KEY = 'wildlands_survival_v29';
 
 const ITEM_PRIORITY: Record<string, number> = {
   'Bow': 100,
   'Torch': 99,
+  'Waterskin (Full)': 95,
+  'Waterskin (Empty)': 94,
   'Cooked Meat': 90,
   'Roasted Apple': 89,
   'Cooked Berries': 88,
@@ -21,6 +23,12 @@ const ITEM_PRIORITY: Record<string, number> = {
   'Flint Stone': 10,
   'Wood': 5,
   'Stone': 4
+};
+
+const getItemType = (name: string): 'resource' | 'food' | 'tool' => {
+  if (['Bow', 'Torch', 'Waterskin (Empty)', 'Waterskin (Full)'].includes(name)) return 'tool';
+  if (['Apple', 'Berries', 'Raw Meat', 'Cooked Meat', 'Roasted Apple'].includes(name)) return 'food';
+  return 'resource';
 };
 
 const sortInventory = (items: InventoryItem[]): InventoryItem[] => {
@@ -34,9 +42,16 @@ const App: React.FC = () => {
   const [gameKey, setGameKey] = useState(0); 
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
   const [isWarmingUp, setIsWarmingUp] = useState(false);
+  const [notifications, setNotifications] = useState<{id: number, text: string, icon: string}[]>([]);
   
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const playerInfoRef = useRef({ x: 120, y: 1.8, z: 120, dirX: 0, dirZ: -1 });
+
+  const addNotification = (text: string, icon: string) => {
+    const id = Date.now();
+    setNotifications(prev => [...prev, { id, text, icon }]);
+    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 3000);
+  };
 
   const getInitialState = (): GameState => ({
     stats: { ...INITIAL_STATS },
@@ -89,47 +104,32 @@ const App: React.FC = () => {
 
   const handleUseItem = useCallback((itemId: string) => {
     setGameState(prev => {
-      // Özel Etkileşim: Kamp Ateşi ile Pişirme
       if (itemId === 'campfire') {
         let newInv = [...prev.inventory];
         let rawMeatIndex = newInv.findIndex(i => i.name === 'Raw Meat');
         let appleIndex = newInv.findIndex(i => i.name === 'Apple');
-        
         let cookedSomething = false;
 
-        // Önce eti pişirmeyi dene
         if (rawMeatIndex !== -1) {
           playSFX(SFX_URLS.campfire_cook);
-          // Çiğ eti azalt
-          if (newInv[rawMeatIndex].count > 1) {
-            newInv[rawMeatIndex] = { ...newInv[rawMeatIndex], count: newInv[rawMeatIndex].count - 1 };
-          } else {
-            newInv.splice(rawMeatIndex, 1);
-          }
-          // Pişmiş et ekle
+          if (newInv[rawMeatIndex].count > 1) newInv[rawMeatIndex] = { ...newInv[rawMeatIndex], count: newInv[rawMeatIndex].count - 1 };
+          else newInv.splice(rawMeatIndex, 1);
           let cookedIndex = newInv.findIndex(i => i.name === 'Cooked Meat');
           if (cookedIndex !== -1) newInv[cookedIndex].count++;
           else newInv.push({ id: 'cooked_' + Date.now(), name: 'Cooked Meat', type: 'food', count: 1 });
+          addNotification(t.cookedMeat, '🍖');
           cookedSomething = true;
-        } 
-        // Yoksa elmayı pişir
-        else if (appleIndex !== -1) {
+        } else if (appleIndex !== -1) {
           playSFX(SFX_URLS.campfire_cook);
-          if (newInv[appleIndex].count > 1) {
-            newInv[appleIndex] = { ...newInv[appleIndex], count: newInv[appleIndex].count - 1 };
-          } else {
-            newInv.splice(appleIndex, 1);
-          }
+          if (newInv[appleIndex].count > 1) newInv[appleIndex] = { ...newInv[appleIndex], count: newInv[appleIndex].count - 1 };
+          else newInv.splice(appleIndex, 1);
           let roastedIndex = newInv.findIndex(i => i.name === 'Roasted Apple');
           if (roastedIndex !== -1) newInv[roastedIndex].count++;
           else newInv.push({ id: 'roasted_' + Date.now(), name: 'Roasted Apple', type: 'food', count: 1 });
+          addNotification(t.roastedApple, '🍎');
           cookedSomething = true;
         }
-
-        if (cookedSomething) {
-          return { ...prev, inventory: sortInventory(newInv) };
-        }
-        return prev;
+        return cookedSomething ? { ...prev, inventory: sortInventory(newInv) } : prev;
       }
 
       const itemIndex = prev.inventory.findIndex(i => i.id === itemId);
@@ -137,52 +137,81 @@ const App: React.FC = () => {
       const item = prev.inventory[itemIndex];
       
       if (item.name === 'Bow' || item.name === 'Torch') {
-        setActiveToolId(current => {
-          const isTurningOn = current !== itemId;
-          if (isTurningOn && item.name === 'Torch') playSFX(SFX_URLS.torch_light);
-          return isTurningOn ? itemId : null;
-        });
+        setActiveToolId(current => (current !== itemId ? itemId : null));
+        if (activeToolId !== itemId && item.name === 'Torch') playSFX(SFX_URLS.torch_light);
         return prev;
+      }
+
+      if (item.name === 'Waterskin (Full)') {
+        playSFX(SFX_URLS.drink_swallow);
+        const newInv = [...prev.inventory];
+        newInv[itemIndex] = { ...newInv[itemIndex], name: 'Waterskin (Empty)' };
+        addNotification(t.thirst, '💧');
+        return { ...prev, stats: { ...prev.stats, thirst: Math.min(100, prev.stats.thirst + 40) }, inventory: sortInventory(newInv) };
       }
 
       let newStats = { ...prev.stats };
       let consumed = false;
-
-      if (item.name === 'Apple') {
-        newStats.hunger = Math.min(100, newStats.hunger + 15);
-        newStats.health = Math.min(100, newStats.health + 5);
-        consumed = true;
-      } else if (item.name === 'Roasted Apple') {
-        newStats.hunger = Math.min(100, newStats.hunger + 25);
-        newStats.health = Math.min(100, newStats.health + 12);
-        consumed = true;
-      } else if (item.name === 'Cooked Meat') {
-        newStats.hunger = Math.min(100, newStats.hunger + 55);
-        newStats.health = Math.min(100, newStats.health + 35);
-        consumed = true;
-      } else if (item.name === 'Raw Meat') {
-        newStats.hunger = Math.min(100, newStats.hunger + 12);
-        newStats.health = Math.max(0, newStats.health - 8); // Çiğ et zarar verebilir
-        consumed = true;
-      } else if (item.name === 'Berries') {
-        newStats.hunger = Math.min(100, newStats.hunger + 10);
-        newStats.health = Math.min(100, newStats.health + 2);
-        consumed = true;
-      }
+      if (item.name === 'Apple') { newStats.hunger = Math.min(100, newStats.hunger + 15); consumed = true; }
+      else if (item.name === 'Roasted Apple') { newStats.hunger = Math.min(100, newStats.hunger + 25); consumed = true; }
+      else if (item.name === 'Cooked Meat') { newStats.hunger = Math.min(100, newStats.hunger + 55); consumed = true; }
+      else if (item.name === 'Raw Meat') { newStats.hunger = Math.min(100, newStats.hunger + 12); newStats.health -= 8; consumed = true; }
+      else if (item.name === 'Berries') { newStats.hunger = Math.min(100, newStats.hunger + 10); consumed = true; }
 
       if (consumed) {
         playSFX(SFX_URLS.eat_crunchy);
         const newInv = [...prev.inventory];
-        if (newInv[itemIndex].count > 1) {
-          newInv[itemIndex] = { ...newInv[itemIndex], count: newInv[itemIndex].count - 1 };
-        } else {
-          newInv.splice(itemIndex, 1);
-        }
+        if (newInv[itemIndex].count > 1) newInv[itemIndex] = { ...newInv[itemIndex], count: newInv[itemIndex].count - 1 };
+        else newInv.splice(itemIndex, 1);
         return { ...prev, stats: newStats, inventory: sortInventory(newInv) };
       }
       return prev;
     });
-  }, [playSFX]);
+  }, [playSFX, t, activeToolId]);
+
+  const onDrinkFromLake = useCallback(() => {
+    setGameState(prev => {
+      let newInv = [...prev.inventory];
+      let waterskinIdx = newInv.findIndex(i => i.name === 'Waterskin (Empty)');
+      if (waterskinIdx !== -1) {
+        newInv[waterskinIdx] = { ...newInv[waterskinIdx], name: 'Waterskin (Full)' };
+        addNotification(t.WaterskinFull, '🍶');
+      }
+      playSFX(SFX_URLS.drink_swallow);
+      return { ...prev, stats: { ...prev.stats, thirst: Math.min(100, prev.stats.thirst + 20) }, inventory: sortInventory(newInv) };
+    });
+  }, [playSFX, t]);
+
+  const onCollectItem = useCallback((name: string, icon: string) => {
+    setGameState(prev => {
+      const inv = [...prev.inventory];
+      const type = getItemType(name);
+      const limit = ITEM_LIMITS[type as keyof typeof ITEM_LIMITS] || 30;
+      
+      const existing = inv.find(i => i.name === name && (type === 'tool' || i.count < limit));
+      if (existing) {
+        existing.count++;
+      } else {
+        if (inv.length >= 15) { addNotification(t.inventoryFull, '⚠️'); return prev; }
+        inv.push({ id: Math.random().toString(), name, type, count: 1 });
+      }
+      addNotification(name, icon);
+      return { ...prev, inventory: sortInventory(inv) };
+    });
+  }, [t]);
+
+  // Otomatik Konum ve Rotasyon Kaydı (Her 3 saniyede bir)
+  useEffect(() => {
+    if (view !== 'game') return;
+    const interval = setInterval(() => {
+      setGameState(prev => ({
+        ...prev,
+        playerPosition: { x: playerInfoRef.current.x, y: playerInfoRef.current.y, z: playerInfoRef.current.z },
+        playerRotation: playerRotation
+      }));
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [view, playerRotation]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -193,7 +222,6 @@ const App: React.FC = () => {
         } else setView('menu');
       }
       if (e.code === 'KeyC' && view === 'game') setIsCraftingOpen(prev => !prev);
-      
       if (view === 'game' && !isCraftingOpen) {
         const keyNum = parseInt(e.key);
         if (keyNum >= 1 && keyNum <= 9) {
@@ -207,59 +235,51 @@ const App: React.FC = () => {
   }, [view, isCraftingOpen, gameState.inventory, handleUseItem]);
 
   useEffect(() => {
-    if (!musicRef.current) {
-      musicRef.current = new Audio(MUSIC_URL);
-      musicRef.current.loop = true;
-      musicRef.current.volume = 0.2;
-    }
+    if (!musicRef.current) { musicRef.current = new Audio(MUSIC_URL); musicRef.current.loop = true; musicRef.current.volume = 0.2; }
     if (gameState.settings.musicEnabled && view === 'game') musicRef.current.play().catch(() => {});
     else musicRef.current.pause();
   }, [gameState.settings.musicEnabled, view]);
 
-  const handleCraft = useCallback((type: 'campfire' | 'arrows' | 'bow' | 'torch') => {
+  const handleCraft = useCallback((type: string) => {
     setGameState(prev => {
       const wood = prev.inventory.find(i => i.name === 'Wood');
       const flint = prev.inventory.find(i => i.name === 'Flint Stone');
       let newInv = [...prev.inventory];
-      
       if (type === 'campfire' && wood && wood.count >= 3 && flint && flint.count >= 1) {
         playSFX(SFX_URLS.campfire_craft);
         newInv = newInv.map(i => i.name === 'Wood' ? { ...i, count: i.count - 3 } : i.name === 'Flint Stone' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
         const cf = { id: 'cf_' + Date.now(), x: playerInfoRef.current.x + playerInfoRef.current.dirX * 3, z: playerInfoRef.current.z + playerInfoRef.current.dirZ * 3 };
         return { ...prev, inventory: sortInventory(newInv), campfires: [...prev.campfires, cf] };
       }
-      if (type === 'arrows' && wood && wood.count >= 1) {
+      if (type === 'waterskin' && wood && wood.count >= 2) {
         playSFX(SFX_URLS.collect_item_generic);
+        newInv = newInv.map(i => i.name === 'Wood' ? { ...i, count: i.count - 2 } : i).filter(i => i.count > 0);
+        newInv.push({ id: 'ws_' + Date.now(), name: 'Waterskin (Empty)', type: 'tool', count: 1 });
+        addNotification(t.Waterskin, '🍶');
+        return { ...prev, inventory: sortInventory(newInv) };
+      }
+      if (type === 'arrows' && wood && wood.count >= 1) {
         newInv = newInv.map(i => i.name === 'Wood' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
         const arrows = newInv.find(i => i.name === 'Arrow');
         if (arrows) arrows.count += 5; else newInv.push({ id: 'arrow_' + Date.now(), name: 'Arrow', type: 'resource', count: 5 });
+        addNotification(t.Arrow, '🏹');
         return { ...prev, inventory: sortInventory(newInv) };
       }
       if (type === 'bow' && wood && wood.count >= 3) {
-        playSFX(SFX_URLS.collect_item_generic);
         newInv = newInv.map(i => i.name === 'Wood' ? { ...i, count: i.count - 3 } : i).filter(i => i.count > 0);
-        const existingBow = newInv.find(i => i.name === 'Bow');
-        if (existingBow) {
-          existingBow.count++;
-        } else {
-          newInv.push({ id: 'bow_' + Date.now(), name: 'Bow', type: 'tool', count: 1 });
-        }
+        newInv.push({ id: 'bow_' + Date.now(), name: 'Bow', type: 'tool', count: 1 });
+        addNotification(t.Bow, '🏹');
         return { ...prev, inventory: sortInventory(newInv) };
       }
       if (type === 'torch' && wood && wood.count >= 1 && flint && flint.count >= 1) {
-        playSFX(SFX_URLS.torch_light);
         newInv = newInv.map(i => i.name === 'Wood' ? { ...i, count: i.count - 1 } : i.name === 'Flint Stone' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
-        const existingTorch = newInv.find(i => i.name === 'Torch');
-        if (existingTorch) {
-          existingTorch.count++;
-        } else {
-          newInv.push({ id: 'torch_' + Date.now(), name: 'Torch', type: 'tool', count: 1 });
-        }
+        newInv.push({ id: 'torch_' + Date.now(), name: 'Torch', type: 'tool', count: 1 });
+        addNotification(t.Torch, '🔦');
         return { ...prev, inventory: sortInventory(newInv) };
       }
       return prev;
     });
-  }, [playSFX]);
+  }, [playSFX, t]);
 
   useEffect(() => {
     if (view !== 'game' || (!isLocked && !isMobile)) return;
@@ -270,23 +290,16 @@ const App: React.FC = () => {
         stats.hunger = Math.max(0, stats.hunger - SURVIVAL_DECAY_RATES.hunger);
         stats.thirst = Math.max(0, stats.thirst - SURVIVAL_DECAY_RATES.thirst);
         const isNight = prev.time > 1900 || prev.time < 500;
-        let tempDelta = isNight ? -SURVIVAL_DECAY_RATES.temp_night_drop : -SURVIVAL_DECAY_RATES.temp_day_drop;
+        let tempDelta = isNight ? -0.25 : -0.08;
         let nearestFireDist = Infinity;
         prev.campfires.forEach(cf => {
            const dist = Math.sqrt(Math.pow(playerInfoRef.current.x - cf.x, 2) + Math.pow(playerInfoRef.current.z - cf.z, 2));
            if (dist < nearestFireDist) nearestFireDist = dist;
         });
-        if (nearestFireDist < 8) {
-           const factor = Math.max(0, Math.min(1, (8 - nearestFireDist) / 6));
-           tempDelta += SURVIVAL_DECAY_RATES.temp_fire_gain * factor;
-           setIsWarmingUp(tempDelta > 0);
-        } else {
-           setIsWarmingUp(false);
-        }
+        if (nearestFireDist < 8) { tempDelta += 0.8 * Math.max(0, Math.min(1, (8 - nearestFireDist) / 6)); setIsWarmingUp(tempDelta > 0); }
+        else setIsWarmingUp(false);
         stats.temperature = Math.max(0, Math.min(100, stats.temperature + tempDelta));
-        if (stats.hunger < 5 || stats.thirst < 5 || stats.temperature < 15) {
-          stats.health = Math.max(0, stats.health - 0.4);
-        }
+        if (stats.hunger < 5 || stats.thirst < 5 || stats.temperature < 15) stats.health = Math.max(0, stats.health - 0.4);
         let newTime = prev.time + 1;
         if (newTime >= 2400) newTime = 0;
         return { ...prev, stats, time: newTime };
@@ -298,9 +311,7 @@ const App: React.FC = () => {
   const startNewGame = () => { localStorage.removeItem(SAVE_KEY); setGameState(getInitialState()); setGameKey(prev => prev + 1); setView('game'); setShowNewGameConfirm(false); setIsCraftingOpen(false); };
 
   useEffect(() => {
-    if (gameState) {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
-    }
+    localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
   }, [gameState]);
 
   return (
@@ -309,17 +320,12 @@ const App: React.FC = () => {
         key={gameKey} ref={sceneRef} initialPosition={gameState.playerPosition} initialRotation={gameState.playerRotation}
         onInteract={setInteraction} 
         onCollect={(t) => {
-          setGameState(prev => {
-            const inv = [...prev.inventory];
-            const item = inv.find(i => i.name === t);
-            if (item) item.count++; else inv.push({ id: Math.random().toString(), name: t, type: 'resource' as any, count: 1 });
-            return { ...prev, inventory: sortInventory(inv) };
-          });
+          const icons: Record<string, string> = { Apple: '🍎', Wood: '🪵', Stone: '🪨', Berries: '🍒', 'Raw Meat': '🥩', Arrow: '🏹' };
+          onCollectItem(t, icons[t] || '📦');
         }}
-        onDrink={() => { setGameState(p => ({ ...p, stats: { ...p.stats, thirst: Math.min(100, p.stats.thirst + 25) }})); playSFX(SFX_URLS.drink_swallow); }}
+        onDrink={onDrinkFromLake}
         onPositionUpdate={(info) => { playerInfoRef.current = info; setPlayerRotation(Math.atan2(info.dirX, info.dirZ)); }}
-        onLockChange={setIsLocked} 
-        onCook={(id) => handleUseItem('campfire')}
+        onLockChange={setIsLocked} onCook={() => handleUseItem('campfire')}
         onShoot={() => setGameState(p => ({ ...p, inventory: p.inventory.map(i => i.name === 'Arrow' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0) }))}
         isBowActive={gameState.inventory.find(i => i.id === activeToolId)?.name === 'Bow'}
         isTorchActive={gameState.inventory.find(i => i.id === activeToolId)?.name === 'Torch'}
@@ -333,30 +339,38 @@ const App: React.FC = () => {
         activeToolId={activeToolId} onMobileInput={setMobileInput} isMobile={isMobile} onCook={() => handleUseItem('campfire')} cookingItem={null} 
         isHungerCritical={gameState.stats.hunger < 20} isThirstCritical={gameState.stats.thirst < 20} isWarmingUp={isWarmingUp} showTodoList={true} 
       />
+      <div className="fixed top-8 right-8 z-[200] flex flex-col gap-2 pointer-events-none">
+        {notifications.map(n => (
+          <div key={n.id} className="bg-indigo-600/90 backdrop-blur-xl px-4 py-2 rounded-xl border border-white/20 shadow-2xl animate-in slide-in-from-right flex items-center gap-3">
+             <span className="text-xl">{n.icon}</span>
+             <span className="text-[10px] font-black uppercase tracking-widest">{n.text} {t.collected}</span>
+          </div>
+        ))}
+      </div>
       <AIAdvisor gameState={gameState} />
       {view === 'menu' && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-2xl pointer-events-auto">
-          <div className="mb-12 text-center">
+          <div className="mb-12 text-center animate-in zoom-in-95 duration-700">
             <h1 className="text-8xl font-black italic tracking-tighter text-indigo-500 drop-shadow-[0_0_30px_rgba(99,102,241,0.4)]">WILD LANDS</h1>
             <p className="text-indigo-300 font-bold tracking-[0.4em] text-xs mt-2 uppercase">{t.tagline}</p>
           </div>
           <div className="flex flex-col items-center">
-            <button onClick={() => setView('game')} disabled={!hasSave} className={`w-64 py-4 rounded-xl font-black text-xl mb-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-20`}>{t.continue}</button>
-            <button onClick={() => hasSave ? setShowNewGameConfirm(true) : startNewGame()} className="w-64 py-4 rounded-xl font-black text-xl mb-4 bg-white/10 hover:bg-white/20">{t.newGame}</button>
+            <button onClick={() => setView('game')} disabled={!hasSave} className={`w-64 py-4 rounded-xl font-black text-xl mb-4 bg-indigo-600 hover:bg-indigo-500 transition-all active:scale-95 disabled:opacity-20`}>{t.continue}</button>
+            <button onClick={() => hasSave ? setShowNewGameConfirm(true) : startNewGame()} className="w-64 py-4 rounded-xl font-black text-xl mb-4 bg-white/10 hover:bg-white/20 transition-all active:scale-95">{t.newGame}</button>
           </div>
           {showNewGameConfirm && (
-            <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-8 z-[60]">
-               <p className="text-red-400 font-black mb-6 uppercase tracking-widest">{t.resetProgress}?</p>
-               <button onClick={startNewGame} className="w-64 py-4 bg-red-600 rounded-xl font-black text-xl mb-4">{t.newGame}</button>
-               <button onClick={() => setShowNewGameConfirm(false)} className="w-64 py-4 bg-white/10 rounded-xl font-black text-xl">{t.close}</button>
+            <div className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center p-8 z-[60] animate-in zoom-in-95">
+               <p className="text-red-400 font-black mb-6 uppercase tracking-widest text-center">{t.resetProgress}?<br/><span className="text-xs text-white/40">Tüm ilerlemeniz silinecek.</span></p>
+               <button onClick={startNewGame} className="w-64 py-4 bg-red-600 rounded-xl font-black text-xl mb-4 hover:bg-red-500 active:scale-95 transition-all">{t.newGame}</button>
+               <button onClick={() => setShowNewGameConfirm(false)} className="w-64 py-4 bg-white/10 rounded-xl font-black text-xl hover:bg-white/20 active:scale-95 transition-all">{t.close}</button>
             </div>
           )}
         </div>
       )}
       {isGameOver && (
-        <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-black text-red-600">
+        <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-black text-red-600 animate-in fade-in duration-1000">
           <h1 className="text-9xl font-black mb-8 italic">ÖLDÜN</h1>
-          <button onClick={() => window.location.reload()} className="px-12 py-5 bg-red-600 text-white rounded-2xl font-black text-2xl">{t.tryAgain}</button>
+          <button onClick={() => window.location.reload()} className="px-12 py-5 bg-red-600 text-white rounded-2xl font-black text-2xl active:scale-90 transition-transform">{t.tryAgain}</button>
         </div>
       )}
     </div>
