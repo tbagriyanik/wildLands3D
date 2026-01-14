@@ -101,6 +101,17 @@ const App: React.FC = () => {
     }
   }, [gameState.settings.sfxEnabled]);
 
+  const toggleLanguage = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        language: prev.settings.language === 'tr' ? 'en' : 'tr'
+      }
+    }));
+    playSFX(SFX_URLS.ui_click);
+  }, [playSFX]);
+
   const handleUseItem = useCallback((itemId: string) => {
     setGameState(prev => {
       if (itemId === 'campfire') {
@@ -116,7 +127,7 @@ const App: React.FC = () => {
           let cookedIndex = newInv.findIndex(i => i.name === 'Cooked Meat');
           if (cookedIndex !== -1) newInv[cookedIndex].count++;
           else newInv.push({ id: 'cooked_' + Date.now(), name: 'Cooked Meat', type: 'food', count: 1 });
-          addNotification(t.cookedMeat, '🍖');
+          addNotification('Cooked Meat', '🍖');
           cookedSomething = true;
         } else if (appleIndex !== -1) {
           playSFX(SFX_URLS.campfire_cook);
@@ -125,7 +136,7 @@ const App: React.FC = () => {
           let roastedIndex = newInv.findIndex(i => i.name === 'Roasted Apple');
           if (roastedIndex !== -1) newInv[roastedIndex].count++;
           else newInv.push({ id: 'roasted_' + Date.now(), name: 'Roasted Apple', type: 'food', count: 1 });
-          addNotification(t.roastedApple, '🍎');
+          addNotification('Roasted Apple', '🍎');
           cookedSomething = true;
         }
         return cookedSomething ? { ...prev, inventory: sortInventory(newInv) } : prev;
@@ -145,7 +156,7 @@ const App: React.FC = () => {
         playSFX(SFX_URLS.drink_swallow);
         const newInv = [...prev.inventory];
         newInv[itemIndex] = { ...newInv[itemIndex], name: 'Waterskin (Empty)' };
-        addNotification(t.thirst, '💧');
+        addNotification('thirstQuenched', '💧');
         return { ...prev, stats: { ...prev.stats, thirst: Math.min(100, prev.stats.thirst + 40) }, inventory: sortInventory(newInv) };
       }
 
@@ -166,7 +177,7 @@ const App: React.FC = () => {
       }
       return prev;
     });
-  }, [playSFX, t, activeToolId]);
+  }, [playSFX, activeToolId]);
 
   const onDrinkFromLake = useCallback(() => {
     setGameState(prev => {
@@ -174,14 +185,14 @@ const App: React.FC = () => {
       let waterskinIdx = newInv.findIndex(i => i.name === 'Waterskin (Empty)');
       if (waterskinIdx !== -1) {
         newInv[waterskinIdx] = { ...newInv[waterskinIdx], name: 'Waterskin (Full)' };
-        addNotification(t.WaterskinFull, '🍶');
+        addNotification('WaterskinFull', '🍶');
       } else {
-        addNotification(t.thirst, '💧');
+        addNotification('thirstQuenched', '💧');
       }
       playSFX(SFX_URLS.drink_swallow);
       return { ...prev, stats: { ...prev.stats, thirst: Math.min(100, prev.stats.thirst + 20) }, inventory: sortInventory(newInv) };
     });
-  }, [playSFX, t]);
+  }, [playSFX]);
 
   const onCollectItem = useCallback((name: string, icon: string) => {
     setGameState(prev => {
@@ -193,13 +204,13 @@ const App: React.FC = () => {
       if (existing) {
         existing.count++;
       } else {
-        if (inv.length >= 15) { addNotification(t.inventoryFull, '⚠️'); return prev; }
+        if (inv.length >= 15) { addNotification('inventoryFull', '⚠️'); return prev; }
         inv.push({ id: Math.random().toString(), name, type, count: 1 });
       }
       addNotification(name, icon);
       return { ...prev, inventory: sortInventory(inv) };
     });
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     if (view !== 'game') return;
@@ -209,7 +220,7 @@ const App: React.FC = () => {
         playerPosition: { x: playerInfoRef.current.x, y: playerInfoRef.current.y, z: playerInfoRef.current.z },
         playerRotation: playerRotation
       }));
-    }, 2000); // 2 saniyede bir kaydet
+    }, 2000); 
     return () => clearInterval(interval);
   }, [view, playerRotation]);
 
@@ -255,31 +266,31 @@ const App: React.FC = () => {
         playSFX(SFX_URLS.collect_item_generic);
         newInv = newInv.map(i => i.name === 'Wood' ? { ...i, count: i.count - 2 } : i).filter(i => i.count > 0);
         newInv.push({ id: 'ws_' + Date.now(), name: 'Waterskin (Empty)', type: 'tool', count: 1 });
-        addNotification(t.Waterskin, '🍶');
+        addNotification('Waterskin', '🍶');
         return { ...prev, inventory: sortInventory(newInv) };
       }
       if (type === 'arrows' && wood && wood.count >= 1) {
         newInv = newInv.map(i => i.name === 'Wood' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
         const arrows = newInv.find(i => i.name === 'Arrow');
         if (arrows) arrows.count += 5; else newInv.push({ id: 'arrow_' + Date.now(), name: 'Arrow', type: 'resource', count: 5 });
-        addNotification(t.Arrow, '🏹');
+        addNotification('Arrow', '🏹');
         return { ...prev, inventory: sortInventory(newInv) };
       }
       if (type === 'bow' && wood && wood.count >= 3) {
         newInv = newInv.map(i => i.name === 'Wood' ? { ...i, count: i.count - 3 } : i).filter(i => i.count > 0);
         newInv.push({ id: 'bow_' + Date.now(), name: 'Bow', type: 'tool', count: 1 });
-        addNotification(t.Bow, '🏹');
+        addNotification('Bow', '🏹');
         return { ...prev, inventory: sortInventory(newInv) };
       }
       if (type === 'torch' && wood && wood.count >= 1 && flint && flint.count >= 1) {
         newInv = newInv.map(i => i.name === 'Wood' ? { ...i, count: i.count - 1 } : i.name === 'Flint Stone' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
         newInv.push({ id: 'torch_' + Date.now(), name: 'Torch', type: 'tool', count: 1 });
-        addNotification(t.Torch, '🔦');
+        addNotification('Torch', '🔦');
         return { ...prev, inventory: sortInventory(newInv) };
       }
       return prev;
     });
-  }, [playSFX, t]);
+  }, [playSFX]);
 
   useEffect(() => {
     if (view !== 'game' || (!isLocked && !isMobile)) return;
@@ -338,16 +349,25 @@ const App: React.FC = () => {
         isCraftingOpen={isCraftingOpen} setIsCraftingOpen={setIsCraftingOpen} playerRotation={playerRotation} 
         activeToolId={activeToolId} onMobileInput={setMobileInput} isMobile={isMobile} onCook={() => handleUseItem('campfire')} cookingItem={null} 
         isHungerCritical={gameState.stats.hunger < 20} isThirstCritical={gameState.stats.thirst < 20} isWarmingUp={isWarmingUp} showTodoList={true} 
+        onToggleLanguage={toggleLanguage}
       />
       
       {/* Notifications - Sol Alt Bölge */}
       <div className="fixed bottom-32 left-8 z-[200] flex flex-col-reverse gap-2 pointer-events-none">
-        {notifications.map(n => (
-          <div key={n.id} className="bg-indigo-600/90 backdrop-blur-xl px-4 py-2 rounded-xl border border-white/20 shadow-2xl animate-in slide-in-from-left flex items-center gap-3">
-             <span className="text-xl">{n.icon}</span>
-             <span className="text-[10px] font-black uppercase tracking-widest">{n.text} {t.collected}</span>
-          </div>
-        ))}
+        {notifications.map(n => {
+          // Check if it's an item key to add "Collected" suffix
+          const isItem = !!TRANSLATIONS.en[n.text as keyof typeof TRANSLATIONS.en] || !!TRANSLATIONS.tr[n.text as keyof typeof TRANSLATIONS.tr];
+          const translatedText = t[n.text as keyof typeof t] || n.text;
+          
+          return (
+            <div key={n.id} className="bg-indigo-600/90 backdrop-blur-xl px-4 py-2 rounded-xl border border-white/20 shadow-2xl animate-in slide-in-from-left flex items-center gap-3">
+               <span className="text-xl">{n.icon}</span>
+               <span className="text-[10px] font-black uppercase tracking-widest">
+                 {translatedText} {isItem ? t.collected : ''}
+               </span>
+            </div>
+          );
+        })}
       </div>
 
       {view === 'menu' && (

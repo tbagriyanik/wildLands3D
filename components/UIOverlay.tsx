@@ -21,6 +21,7 @@ interface UIOverlayProps {
   activeToolId: string | null;
   isCraftingOpen: boolean;
   setIsCraftingOpen: (open: boolean) => void;
+  onToggleLanguage: () => void;
 }
 
 const getItemIcon = (name: string): string => {
@@ -61,7 +62,7 @@ const getInteractionIcon = (type: string): string => {
 };
 
 const UIOverlay: React.FC<UIOverlayProps> = ({ 
-  gameState, interaction, onUseItem, onCraft, isVisible, isHungerCritical, isThirstCritical, isWarmingUp, isMobile, onMobileInput, playerRotation, activeToolId, isCraftingOpen, setIsCraftingOpen
+  gameState, interaction, onUseItem, onCraft, isVisible, isHungerCritical, isThirstCritical, isWarmingUp, isMobile, onMobileInput, playerRotation, activeToolId, isCraftingOpen, setIsCraftingOpen, onToggleLanguage
 }) => {
   const { stats, inventory, time, settings } = gameState;
   const t = TRANSLATIONS[settings.language];
@@ -103,11 +104,11 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
 
   const StatBar = ({ label, value, color, pulse = false, icon = null }: { label: string, value: number, color: string, pulse?: boolean, icon?: React.ReactNode }) => (
     <div className={`mb-2 w-full group ${pulse ? 'animate-pulse' : ''}`}>
-      <div className="flex justify-between items-center text-[8px] font-black text-white/50 group-hover:text-white transition-colors uppercase tracking-widest mb-0.5 px-1">
+      <div className="flex justify-between items-center text-[8px] font-black text-black/60 group-hover:text-black transition-colors uppercase tracking-widest mb-0.5 px-1">
         <div className="flex items-center gap-1">{icon}<span>{label}</span></div>
         <span className="tabular-nums">{Math.round(value)}%</span>
       </div>
-      <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden backdrop-blur-md border border-white/5">
+      <div className="w-full h-1 bg-black/10 rounded-full overflow-hidden backdrop-blur-md border border-black/5">
         <div className="h-full transition-all duration-700 ease-out" style={{ width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: color, boxShadow: `0 0 10px ${color}80` }} />
       </div>
     </div>
@@ -125,10 +126,10 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
     <div className={`absolute inset-0 pointer-events-none z-20 flex flex-col justify-between p-8 transition-opacity duration-700 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
       
       <div className="flex justify-between items-start">
-        <div className="bg-slate-950/40 backdrop-blur-2xl p-4 rounded-[1.5rem] border border-white/10 w-44 pointer-events-auto shadow-2xl">
-          <div className="flex justify-between items-center text-[10px] text-indigo-400 font-black mb-2 border-b border-white/5 pb-2">
+        <div className="bg-white/80 backdrop-blur-2xl p-4 rounded-[1.5rem] border border-black/10 w-44 pointer-events-auto shadow-2xl">
+          <div className="flex justify-between items-center text-[10px] text-black font-black mb-2 border-b border-black/10 pb-2">
              <span>{t.day} {gameState.day}</span>
-             <span className="bg-indigo-500/20 px-1.5 py-0.5 rounded-full text-[8px]">{formatTime(time)}</span>
+             <span className="bg-black/10 px-1.5 py-0.5 rounded-full text-[8px]">{formatTime(time)}</span>
           </div>
           <StatBar label={t.health} value={stats.health} color={COLORS.health} pulse={stats.health < 25} />
           <StatBar label={t.hunger} value={stats.hunger} color={COLORS.hunger} pulse={isHungerCritical} />
@@ -136,11 +137,19 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
           <StatBar label={t.temp} value={stats.temperature} color={COLORS.temperature} pulse={isWarmingUp} icon={isWarmingUp ? "🔥" : null} />
         </div>
 
-        <div className="relative w-64 h-12 bg-slate-950/40 backdrop-blur-md rounded-2xl border border-white/10 flex items-center justify-center overflow-hidden">
-          <div className="absolute w-[400%] flex justify-around text-[11px] font-black tracking-[0.4em] text-white/40" style={{ transform: `translateX(${-((playerRotation * 180 / Math.PI) % 360)}px)` }}>
-            <span>S</span><span>W</span><span>N</span><span>E</span><span>S</span><span>W</span><span>N</span><span>E</span>
+        <div className="flex items-center gap-2 pointer-events-auto">
+          <div className="relative w-64 h-12 bg-white/80 backdrop-blur-md rounded-2xl border border-black/10 flex items-center justify-center overflow-hidden shadow-2xl">
+            <div className="absolute w-[400%] flex justify-around text-[11px] font-black tracking-[0.4em] text-black" style={{ transform: `translateX(${-((playerRotation * 180 / Math.PI) % 360)}px)` }}>
+              <span>S</span><span>W</span><span>N</span><span>E</span><span>S</span><span>W</span><span>N</span><span>E</span>
+            </div>
+            <div className="absolute w-0.5 h-6 bg-indigo-500 z-10" />
           </div>
-          <div className="absolute w-0.5 h-6 bg-indigo-500 z-10" />
+          <button 
+            onClick={onToggleLanguage}
+            className="w-12 h-12 bg-white/80 backdrop-blur-md rounded-2xl border border-black/10 flex items-center justify-center text-[10px] font-black text-black hover:bg-black/10 transition-colors uppercase tracking-widest shadow-2xl"
+          >
+            {settings.language}
+          </button>
         </div>
       </div>
 

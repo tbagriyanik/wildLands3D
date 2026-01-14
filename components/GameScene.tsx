@@ -125,6 +125,55 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
   const requestLock = () => { if (controlsRef.current && !controlsRef.current.isLocked && !propsRef.current.isCraftingOpen && !propsRef.current.isMobile) { try { controlsRef.current.lock(); } catch (e) {} } };
   useImperativeHandle(ref, () => ({ triggerAction, handleShootAction, requestLock }));
 
+  const createCritter = (type: string, x: number, z: number) => {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.userData = { 
+      type, 
+      speed: type === 'deer' ? 1.5 : type === 'rabbit' ? 4.0 : type === 'squirrel' ? 3.0 : 2.5,
+      targetPos: new THREE.Vector3(x, 0, z),
+      waitTime: Math.random() * 5,
+      isBird: type === 'partridge'
+    };
+
+    if (type === 'rabbit') {
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), new THREE.MeshStandardMaterial({ color: 0xeeeeee }));
+      body.scale.set(1, 0.8, 1.4); body.position.y = 0.25; group.add(body);
+      const ear1 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.4, 0.05), new THREE.MeshStandardMaterial({ color: 0xeeeeee }));
+      ear1.position.set(0.1, 0.5, 0.3); group.add(ear1);
+      const ear2 = ear1.clone(); ear2.position.x = -0.1; group.add(ear2);
+    } else if (type === 'squirrel') {
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), new THREE.MeshStandardMaterial({ color: 0x8b4513 }));
+      body.scale.set(1, 1.2, 1.2); body.position.y = 0.2; group.add(body);
+      const tail = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), new THREE.MeshStandardMaterial({ color: 0x5d2e0c }));
+      tail.position.set(0, 0.3, -0.2); tail.scale.set(1, 2, 1); group.add(tail);
+    } else if (type === 'deer') {
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 1.4), new THREE.MeshStandardMaterial({ color: 0x8b4513 }));
+      body.position.y = 1.0; group.add(body);
+      const neck = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.8, 0.3), new THREE.MeshStandardMaterial({ color: 0x8b4513 }));
+      neck.position.set(0, 1.6, 0.6); neck.rotation.x = -0.4; group.add(neck);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.3, 0.5), new THREE.MeshStandardMaterial({ color: 0x8b4513 }));
+      head.position.set(0, 1.9, 0.8); group.add(head);
+      for(let i=0; i<4; i++) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.8, 0.15), new THREE.MeshStandardMaterial({ color: 0x5d2e0c }));
+        leg.position.set(i < 2 ? 0.2 : -0.2, 0.4, i % 2 === 0 ? 0.5 : -0.5); group.add(leg);
+      }
+    } else if (type === 'partridge') {
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8), new THREE.MeshStandardMaterial({ color: 0x444444 }));
+      body.scale.set(1, 0.8, 1.2); body.position.y = 0.2; group.add(body);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), new THREE.MeshStandardMaterial({ color: 0xcc0000 }));
+      head.position.set(0, 0.4, 0.25); group.add(head);
+      const wingL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.05, 0.3), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+      wingL.position.set(0.3, 0.25, 0); group.add(wingL);
+      const wingR = wingL.clone(); wingR.position.x = -0.3; group.add(wingR);
+      group.userData.wings = [wingL, wingR];
+      group.userData.flyHeight = 0;
+      group.userData.state = 'ground'; // ground or flying
+    }
+
+    critterGroupRef.current.add(group);
+  };
+
   useEffect(() => {
     if (!mountRef.current) return;
     const scene = new THREE.Scene(); sceneRef.current = scene;
@@ -199,6 +248,14 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
       }
     }
 
+    // Spawn critters
+    const critterTypes = ['rabbit', 'squirrel', 'deer', 'partridge'];
+    for(let i=0; i<200; i++) {
+      const type = critterTypes[Math.floor(Math.random() * critterTypes.length)];
+      const x = (Math.random()-0.5)*1800, z = (Math.random()-0.5)*1800;
+      if (Math.sqrt(x*x+z*z) > 40) createCritter(type, x, z);
+    }
+
     const controls = new PointerLockControls(camera, renderer.domElement); controlsRef.current = controls;
     controls.addEventListener('lock', () => propsRef.current.onLockChange(true));
     controls.addEventListener('unlock', () => propsRef.current.onLockChange(false));
@@ -248,6 +305,47 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
         }
         if (!isGrounded.current) { velocity.current.y -= 25 * delta; camera.position.y += velocity.current.y * delta; if (camera.position.y <= 1.8) { camera.position.y = 1.8; velocity.current.y = 0; isGrounded.current = true; } }
         
+        // Critter AI Update
+        critterGroupRef.current.children.forEach(c => {
+          if (!c.visible) return;
+          const ud = c.userData;
+          if (ud.waitTime > 0) {
+            ud.waitTime -= delta;
+            // Animation for idle
+            if (ud.type === 'rabbit') c.scale.y = 1 + Math.sin(Date.now() * 0.01) * 0.05;
+          } else {
+            const dist = c.position.distanceTo(ud.targetPos);
+            if (dist < 0.5) {
+              ud.waitTime = 2 + Math.random() * 5;
+              const angle = Math.random() * Math.PI * 2;
+              const range = ud.isBird ? 50 : 15;
+              ud.targetPos.set(c.position.x + Math.cos(angle) * range, 0, c.position.z + Math.sin(angle) * range);
+              if (ud.isBird) ud.state = Math.random() > 0.5 ? 'flying' : 'ground';
+            } else {
+              const moveDir = ud.targetPos.clone().sub(c.position).normalize();
+              c.position.add(moveDir.multiplyScalar(ud.speed * delta));
+              c.lookAt(ud.targetPos);
+
+              if (ud.isBird) {
+                if (ud.state === 'flying') {
+                   ud.flyHeight = Math.min(10, ud.flyHeight + delta * 5);
+                } else {
+                   ud.flyHeight = Math.max(0, ud.flyHeight - delta * 5);
+                }
+                c.position.y = ud.flyHeight;
+                // Flap wings
+                if (ud.wings) {
+                  ud.wings[0].rotation.z = Math.sin(Date.now() * 0.02) * 0.8;
+                  ud.wings[1].rotation.z = -Math.sin(Date.now() * 0.02) * 0.8;
+                }
+              } else if (ud.type === 'rabbit') {
+                // Hop animation
+                c.position.y = Math.abs(Math.sin(Date.now() * 0.01)) * 0.5;
+              }
+            }
+          }
+        });
+
         if (cameraRef.current) {
           const playerPos = cameraRef.current.position;
           for (let i = worldObjectsRef.current.length - 1; i >= 0; i--) {
@@ -264,6 +362,14 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({
           interactionRaycaster.set(p, v.clone().normalize()); const hits = interactionRaycaster.intersectObjects([...worldObjectsRef.current, ground, ...critterGroupRef.current.children], true);
           if (hits.length > 0 && hits[0].distance < v.length() * delta + 0.2) {
             let target = hits[0].object; while(target.parent && !target.userData.type) target = target.parent;
+            
+            // Check if critter was hit
+            if (['rabbit', 'squirrel', 'partridge', 'deer'].includes(target.userData.type)) {
+                target.visible = false;
+                propsRef.current.onCollect('Raw Meat');
+                playSFX(SFX_URLS.collect_meat);
+            }
+
             a.position.copy(hits[0].point); a.userData.type = 'arrow'; a.userData.anchor = target; a.userData.fallVelocity = 0;
             flyingArrowsRef.current.splice(i, 1); playSFX(SFX_URLS.arrow_impact); worldObjectsRef.current.push(a); continue;
           }
