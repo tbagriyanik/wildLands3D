@@ -1,6 +1,6 @@
 
-import React, { useRef, useState, useEffect } from 'react';
-import { GameState, InteractionTarget, MobileInput } from '../types';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
+import { GameState, InteractionTarget, MobileInput, InventoryItem } from '../types';
 import { COLORS, TRANSLATIONS } from '../constants';
 
 interface UIOverlayProps {
@@ -61,6 +61,36 @@ const getInteractionIcon = (type: string): string => {
   }
 };
 
+// Moved outside to fix TypeScript "key" prop errors and improve performance
+const StatBar = ({ label, value, color, pulse = false, icon = null }: { label: string, value: number, color: string, pulse?: boolean, icon?: React.ReactNode }) => (
+  <div className={`mb-1.5 w-full group ${pulse ? 'animate-pulse' : ''}`}>
+    <div className="flex justify-between items-center text-[7px] font-black text-black/70 group-hover:text-black transition-colors uppercase tracking-widest mb-0.5 px-0.5">
+      <div className="flex items-center gap-1">{icon}<span>{label}</span></div>
+      <span className="tabular-nums">{Math.round(value)}%</span>
+    </div>
+    <div className="w-full h-1 bg-black/10 rounded-full overflow-hidden border border-black/5">
+      <div className="h-full transition-all duration-700 ease-out" style={{ width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: color, boxShadow: `0 0 8px ${color}60` }} />
+    </div>
+  </div>
+);
+
+// Fixed the key issue by properly typing and moving the sub-component outside
+const ResourceIndicator = ({ item }: { item: InventoryItem }) => (
+  <div className="flex items-center justify-between gap-3 bg-white/40 backdrop-blur-md p-2 px-3 rounded-xl border border-white/40 shadow-sm min-w-[80px]">
+    <span className="text-xl">{getItemIcon(item.name)}</span>
+    <span className="text-[11px] font-black text-black tabular-nums">{item.count}</span>
+  </div>
+);
+
+// Moved outside for better structure
+const CraftItem = ({ label, onClick, disabled, icon, req }: { label: string, onClick: () => void, disabled: boolean, icon: string, req: string }) => (
+  <div className={`group p-4 rounded-2xl border transition-all flex flex-col items-center text-center gap-1 ${disabled ? 'bg-black/40 border-white/5 opacity-50 grayscale' : 'bg-white/5 border-white/10 hover:bg-white/20 hover:scale-105 cursor-pointer shadow-lg active:scale-95'}`} onClick={() => !disabled && onClick()}>
+    <span className="text-3xl group-hover:scale-110 transition-transform">{icon}</span>
+    <span className="text-[9px] font-black uppercase tracking-tighter">{label}</span>
+    <span className={`text-[7px] font-bold ${disabled ? 'text-red-400' : 'text-green-400'}`}>{req}</span>
+  </div>
+);
+
 const UIOverlay: React.FC<UIOverlayProps> = ({ 
   gameState, interaction, onUseItem, onCraft, isVisible, isHungerCritical, isThirstCritical, isWarmingUp, isMobile, onMobileInput, playerRotation, activeToolId, isCraftingOpen, setIsCraftingOpen, onToggleLanguage
 }) => {
@@ -68,6 +98,13 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   const t = TRANSLATIONS[settings.language];
   const joystickRef = useRef<{ startX: number; startY: number; isActive: boolean }>({ startX: 0, startY: 0, isActive: false });
   const [popItem, setPopItem] = useState<string | null>(null);
+
+  // Split inventory into Usable (Hotbar) and Resources
+  const { hotbarItems, resourceItems } = useMemo(() => {
+    const usable = inventory.filter(item => item.type === 'food' || item.type === 'tool').slice(0, 9);
+    const resources = inventory.filter(item => item.type === 'resource');
+    return { hotbarItems: usable, resourceItems: resources };
+  }, [inventory]);
 
   useEffect(() => {
     const lastItem = inventory[0]?.id;
@@ -102,26 +139,6 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
   };
 
-  const StatBar = ({ label, value, color, pulse = false, icon = null }: { label: string, value: number, color: string, pulse?: boolean, icon?: React.ReactNode }) => (
-    <div className={`mb-1.5 w-full group ${pulse ? 'animate-pulse' : ''}`}>
-      <div className="flex justify-between items-center text-[7px] font-black text-black/70 group-hover:text-black transition-colors uppercase tracking-widest mb-0.5 px-0.5">
-        <div className="flex items-center gap-1">{icon}<span>{label}</span></div>
-        <span className="tabular-nums">{Math.round(value)}%</span>
-      </div>
-      <div className="w-full h-1 bg-black/10 rounded-full overflow-hidden border border-black/5">
-        <div className="h-full transition-all duration-700 ease-out" style={{ width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: color, boxShadow: `0 0 8px ${color}60` }} />
-      </div>
-    </div>
-  );
-
-  const CraftItem = ({ label, onClick, disabled, icon, req }: { label: string, onClick: () => void, disabled: boolean, icon: string, req: string }) => (
-    <div className={`group p-4 rounded-2xl border transition-all flex flex-col items-center text-center gap-1 ${disabled ? 'bg-black/40 border-white/5 opacity-50 grayscale' : 'bg-white/5 border-white/10 hover:bg-white/20 hover:scale-105 cursor-pointer shadow-lg active:scale-95'}`} onClick={() => !disabled && onClick()}>
-      <span className="text-3xl group-hover:scale-110 transition-transform">{icon}</span>
-      <span className="text-[9px] font-black uppercase tracking-tighter">{label}</span>
-      <span className={`text-[7px] font-bold ${disabled ? 'text-red-400' : 'text-green-400'}`}>{req}</span>
-    </div>
-  );
-
   return (
     <div className={`absolute inset-0 pointer-events-none z-20 flex flex-col justify-between p-4 sm:p-8 transition-opacity duration-700 ${isVisible ? 'opacity-100' : 'opacity-0'} responsive-ui`}>
       
@@ -154,6 +171,17 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         </div>
       </div>
 
+      {/* Sağ Panel: Kaynaklar (Odun, Taş, Ok vb.) */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 pointer-events-auto">
+        <div className="bg-white/30 backdrop-blur-xl p-2 rounded-2xl border border-white/40 flex flex-col gap-2 shadow-lg">
+          {resourceItems.length > 0 ? resourceItems.map(item => (
+            <ResourceIndicator key={item.id} item={item} />
+          )) : (
+            <div className="text-[8px] text-black/40 font-black p-2 uppercase text-center">Boş</div>
+          )}
+        </div>
+      </div>
+
       {/* Orta Etkileşim İkonu */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10">
         <div className={`transition-all duration-300 ${interaction.type !== 'none' ? 'scale-125 sm:scale-150' : 'scale-100'}`}>
@@ -168,8 +196,8 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         </div>
       </div>
 
-      {/* Alt Panel: Joystick ve Envanter */}
-      <div className="flex flex-col items-center gap-4 sm:gap-8 w-full">
+      {/* Alt Panel: Joystick ve Hotbar (Kullanılabilir Eşyalar 1-9) */}
+      <div className="flex flex-col items-center gap-4 sm:gap-6 w-full">
         {isMobile && (
           <div className="mobile-controls-row w-full flex justify-between px-4 sm:px-8 items-end pointer-events-none mb-2">
             <div className="joystick-container w-28 h-28 sm:w-36 sm:h-36 bg-white/10 backdrop-blur-xl rounded-full border border-white/20 pointer-events-auto flex items-center justify-center shadow-2xl" onTouchStart={handleJoystickStart} onTouchMove={handleJoystickMove} onTouchEnd={handleJoystickEnd}>
@@ -182,17 +210,20 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
           </div>
         )}
 
-        <div className="inventory-bar bg-slate-950/60 backdrop-blur-3xl p-3 sm:p-4 rounded-[1.8rem] sm:rounded-[2.5rem] border border-white/10 flex gap-2 sm:gap-3 pointer-events-auto overflow-x-auto no-scrollbar max-w-full sm:max-w-[90vw] shadow-[0_15px_50px_rgba(0,0,0,0.7)]">
-          {inventory.map((item, index) => (
-            <button key={item.id} onClick={() => onUseItem(item.id)} className={`relative min-w-[50px] sm:min-w-[64px] h-[50px] sm:h-[64px] rounded-xl sm:rounded-2xl border transition-all duration-300 flex items-center justify-center text-2xl sm:text-3xl ${activeToolId === item.id ? 'bg-indigo-500/40 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-white/5 border-white/5'} ${popItem === item.id ? 'scale-110 sm:scale-125' : 'scale-100'} hover:bg-white/10 group`}>
-              {!isMobile && index < 9 && (
-                <span className="absolute top-1 left-2 text-[8px] sm:text-[10px] font-black text-white/30 group-hover:text-white/80 transition-colors uppercase tracking-widest">{index + 1}</span>
-              )}
+        {/* Hotbar (Food/Tools) */}
+        <div className="hotbar-container bg-white/40 backdrop-blur-xl p-2 sm:p-3 rounded-[1.5rem] sm:rounded-[2rem] border border-white/50 flex gap-2 sm:gap-3 pointer-events-auto overflow-x-auto no-scrollbar max-w-full sm:max-w-[90vw] shadow-2xl">
+          {hotbarItems.map((item, index) => (
+            <button 
+              key={item.id} 
+              onClick={() => onUseItem(item.id)} 
+              className={`relative min-w-[54px] sm:min-w-[68px] h-[54px] sm:h-[68px] rounded-xl sm:rounded-2xl border transition-all duration-300 flex items-center justify-center text-2xl sm:text-3xl ${activeToolId === item.id ? 'bg-indigo-500/60 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-white/20 border-white/30'} ${popItem === item.id ? 'scale-110 sm:scale-125' : 'scale-100'} hover:bg-white/40 group`}
+            >
+              <span className="absolute top-1 left-2 text-[8px] sm:text-[10px] font-black text-black/30 group-hover:text-black/80 transition-colors uppercase tracking-widest">{index + 1}</span>
               {getItemIcon(item.name)}
               <span className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 bg-indigo-600 text-[9px] sm:text-[11px] font-black min-w-[18px] sm:min-w-[22px] h-[18px] sm:h-[22px] rounded-lg sm:rounded-xl flex items-center justify-center border border-white/10 shadow-lg text-white">{item.count}</span>
             </button>
           ))}
-          {inventory.length === 0 && <span className="px-4 sm:px-6 py-3 sm:py-4 text-white/20 font-black italic tracking-widest text-[10px] sm:text-sm uppercase whitespace-nowrap">{t.emptyInventory}</span>}
+          {hotbarItems.length === 0 && <span className="px-4 sm:px-6 py-3 sm:py-4 text-black/20 font-black italic tracking-widest text-[10px] sm:text-sm uppercase whitespace-nowrap">Hotbar Boş</span>}
         </div>
       </div>
 
@@ -224,7 +255,6 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         @media (orientation: portrait) {
           .top-left-stats { width: 100% !important; max-width: 250px; }
           .top-right-controls { width: 100% !important; margin-top: 0.5rem; }
-          .inventory-bar { padding: 0.5rem !important; border-radius: 1.5rem !important; }
         }
         
         @media (max-width: 640px) {

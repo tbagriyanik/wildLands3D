@@ -164,12 +164,12 @@ const App: React.FC = () => {
       let consumed = false;
       if (item.name === 'Apple') { 
         newStats.hunger = Math.min(100, newStats.hunger + 15); 
-        newStats.thirst = Math.min(100, newStats.thirst + 10); // Susuzluk desteği
+        newStats.thirst = Math.min(100, newStats.thirst + 10);
         consumed = true; 
       }
       else if (item.name === 'Roasted Apple') { 
         newStats.hunger = Math.min(100, newStats.hunger + 25); 
-        newStats.thirst = Math.min(100, newStats.thirst + 3); // Pişince azalan ama hala olan su desteği
+        newStats.thirst = Math.min(100, newStats.thirst + 3);
         consumed = true; 
       }
       else if (item.name === 'Cooked Meat') { 
@@ -183,7 +183,7 @@ const App: React.FC = () => {
       }
       else if (item.name === 'Berries') { 
         newStats.hunger = Math.min(100, newStats.hunger + 10); 
-        newStats.thirst = Math.min(100, newStats.thirst + 15); // Sulu meyve olduğu için daha çok susuzluk giderir
+        newStats.thirst = Math.min(100, newStats.thirst + 15);
         consumed = true; 
       }
 
@@ -223,7 +223,7 @@ const App: React.FC = () => {
       if (existing) {
         existing.count++;
       } else {
-        if (inv.length >= 15) { addNotification('inventoryFull', '⚠️'); return prev; }
+        if (inv.length >= 25) { addNotification('inventoryFull', '⚠️'); return prev; }
         inv.push({ id: Math.random().toString(), name, type, count: 1 });
       }
       addNotification(name, icon);
@@ -255,7 +255,9 @@ const App: React.FC = () => {
       if (view === 'game' && !isCraftingOpen) {
         const keyNum = parseInt(e.key);
         if (keyNum >= 1 && keyNum <= 9) {
-          const item = gameState.inventory[keyNum - 1];
+          // Hotbar items are filtered from inventory
+          const hotbarItems = gameState.inventory.filter(item => item.type === 'food' || item.type === 'tool');
+          const item = hotbarItems[keyNum - 1];
           if (item) handleUseItem(item.id);
         }
       }
@@ -350,7 +352,7 @@ const App: React.FC = () => {
         key={gameKey} ref={sceneRef} initialPosition={gameState.playerPosition} initialRotation={gameState.playerRotation}
         onInteract={setInteraction} 
         onCollect={(t) => {
-          const icons: Record<string, string> = { Apple: '🍎', Wood: '🪵', Stone: '🪨', Berries: '🍒', 'Raw Meat': '🥩', Arrow: '🏹' };
+          const icons: Record<string, string> = { Apple: '🍎', Wood: '🪵', Stone: '🪨', Berries: '🍒', 'Raw Meat': '🥩', Arrow: '🏹', 'Flint Stone': '🔥' };
           onCollectItem(t, icons[t] || '📦');
         }}
         onDrink={onDrinkFromLake}
@@ -374,14 +376,13 @@ const App: React.FC = () => {
       {/* Notifications - Sol Alt Bölge */}
       <div className="fixed bottom-32 left-8 z-[200] flex flex-col-reverse gap-2 pointer-events-none">
         {notifications.map(n => {
-          // Check if it's an item key to add "Collected" suffix
           const isItem = !!TRANSLATIONS.en[n.text as keyof typeof TRANSLATIONS.en] || !!TRANSLATIONS.tr[n.text as keyof typeof TRANSLATIONS.tr];
           const translatedText = t[n.text as keyof typeof t] || n.text;
           
           return (
             <div key={n.id} className="bg-indigo-600/90 backdrop-blur-xl px-4 py-2 rounded-xl border border-white/20 shadow-2xl animate-in slide-in-from-left flex items-center gap-3">
                <span className="text-xl">{n.icon}</span>
-               <span className="text-[10px] font-black uppercase tracking-widest">
+               <span className="text-[10px] font-black uppercase tracking-widest text-white">
                  {translatedText} {isItem ? t.collected : ''}
                </span>
             </div>
