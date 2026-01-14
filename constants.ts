@@ -8,16 +8,16 @@ export const INITIAL_STATS = {
 };
 
 export const SURVIVAL_DECAY_RATES = {
-  hunger: 0.12,         // ~14 mins from 100 to 0
-  thirst: 0.18,         // ~9 mins from 100 to 0
-  energy_base: 0.02,     // Constant drain
-  energy_walk: 0.15,     // Drain while walking
-  energy_sprint: 0.45,   // Drain while sprinting
-  energy_recovery: 0.4,  // Recovery when standing still
-  energy_fire_gain: 0.6, // Extra recovery when near fire
-  temp_night_drop: 0.25, // Temperature drop per sec at night
-  temp_day_drop: 0.08,   // Temperature drop per sec at day
-  temp_fire_gain: 0.8,   // Temperature gain near fire
+  hunger: 0.12,
+  thirst: 0.18,
+  energy_base: 0.02,
+  energy_walk: 0.15,
+  energy_sprint: 0.45,
+  energy_recovery: 0.4,
+  energy_fire_gain: 0.6,
+  temp_night_drop: 0.25,
+  temp_day_drop: 0.08,
+  temp_fire_gain: 0.8,
 };
 
 export const COLORS = {
@@ -55,6 +55,8 @@ export const TRANSLATIONS = {
     critter: "HUNT ANIMAL",
     rabbit: "HUNT RABBIT",
     partridge: "HUNT PARTRIDGE",
+    deer: "HUNT DEER",
+    squirrel: "HUNT SQUIRREL",
     arrow: "PICK UP ARROW",
     walk: "WALK",
     look: "LOOK",
@@ -125,6 +127,8 @@ export const TRANSLATIONS = {
     critter: "HAYVAN AVLA",
     rabbit: "TAVŞAN AVLA",
     partridge: "KEKLİK AVLA",
+    deer: "GEYİK AVLA",
+    squirrel: "SİNCAP AVLA",
     arrow: "OKU TOPLA",
     walk: "YÜRÜ",
     look: "BAKIŞ",
