@@ -38,16 +38,16 @@ const App: React.FC = () => {
   const [view, setView] = useState<'menu' | 'game' | 'settings'>('menu');
   const [isMobile] = useState(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
   const [isCraftingOpen, setIsCraftingOpen] = useState(false);
-  const [gameKey, setGameKey] = useState(0);
+  const [gameKey, setGameKey] = useState(0); 
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
   const [isWarmingUp, setIsWarmingUp] = useState(false);
-  const [notifications, setNotifications] = useState<{ id: number, text: string, icon: string }[]>([]);
-
+  const [notifications, setNotifications] = useState<{id: number, text: string, icon: string}[]>([]);
+  
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const playerInfoRef = useRef({ x: 120, y: 1.8, z: 120, dirX: 0, dirZ: -1 });
 
   const addNotification = (text: string, icon: string) => {
-    const id = Date.now() + Math.random();
+    const id = Date.now();
     setNotifications(prev => [...prev, { id, text, icon }]);
     setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 3000);
   };
@@ -89,7 +89,7 @@ const App: React.FC = () => {
   const [playerRotation, setPlayerRotation] = useState(gameState.playerRotation || 0);
   const [activeToolId, setActiveToolId] = useState<string | null>(null);
   const [mobileInput, setMobileInput] = useState<MobileInput>({ moveX: 0, moveY: 0, lookX: 0, lookY: 0, jump: false, sprint: false, interact: false, attack: false });
-
+  
   const sceneRef = useRef<GameSceneHandle>(null);
   const t = TRANSLATIONS[gameState.settings.language];
 
@@ -97,7 +97,7 @@ const App: React.FC = () => {
     if (gameState.settings.sfxEnabled) {
       const sfx = new Audio(url);
       sfx.volume = volume;
-      sfx.play().catch(() => { });
+      sfx.play().catch(() => {});
     }
   }, [gameState.settings.sfxEnabled]);
 
@@ -145,7 +145,7 @@ const App: React.FC = () => {
       const itemIndex = prev.inventory.findIndex(i => i.id === itemId);
       if (itemIndex === -1) return prev;
       const item = prev.inventory[itemIndex];
-
+      
       if (item.name === 'Bow' || item.name === 'Torch') {
         setActiveToolId(current => (current !== itemId ? itemId : null));
         if (activeToolId !== itemId && item.name === 'Torch') playSFX(SFX_URLS.torch_light);
@@ -162,29 +162,29 @@ const App: React.FC = () => {
 
       let newStats = { ...prev.stats };
       let consumed = false;
-      if (item.name === 'Apple') {
-        newStats.hunger = Math.min(100, newStats.hunger + 15);
+      if (item.name === 'Apple') { 
+        newStats.hunger = Math.min(100, newStats.hunger + 15); 
         newStats.thirst = Math.min(100, newStats.thirst + 10); // Susuzluk desteği
-        consumed = true;
+        consumed = true; 
       }
-      else if (item.name === 'Roasted Apple') {
-        newStats.hunger = Math.min(100, newStats.hunger + 25);
+      else if (item.name === 'Roasted Apple') { 
+        newStats.hunger = Math.min(100, newStats.hunger + 25); 
         newStats.thirst = Math.min(100, newStats.thirst + 3); // Pişince azalan ama hala olan su desteği
-        consumed = true;
+        consumed = true; 
       }
-      else if (item.name === 'Cooked Meat') {
-        newStats.hunger = Math.min(100, newStats.hunger + 55);
-        consumed = true;
+      else if (item.name === 'Cooked Meat') { 
+        newStats.hunger = Math.min(100, newStats.hunger + 55); 
+        consumed = true; 
       }
-      else if (item.name === 'Raw Meat') {
-        newStats.hunger = Math.min(100, newStats.hunger + 12);
-        newStats.health -= 8;
-        consumed = true;
+      else if (item.name === 'Raw Meat') { 
+        newStats.hunger = Math.min(100, newStats.hunger + 12); 
+        newStats.health -= 8; 
+        consumed = true; 
       }
-      else if (item.name === 'Berries') {
-        newStats.hunger = Math.min(100, newStats.hunger + 10);
+      else if (item.name === 'Berries') { 
+        newStats.hunger = Math.min(100, newStats.hunger + 10); 
         newStats.thirst = Math.min(100, newStats.thirst + 15); // Sulu meyve olduğu için daha çok susuzluk giderir
-        consumed = true;
+        consumed = true; 
       }
 
       if (consumed) {
@@ -218,7 +218,7 @@ const App: React.FC = () => {
       const inv = [...prev.inventory];
       const type = getItemType(name);
       const limit = ITEM_LIMITS[type as keyof typeof ITEM_LIMITS] || 30;
-
+      
       const existing = inv.find(i => i.name === name && (type === 'tool' || i.count < limit));
       if (existing) {
         existing.count++;
@@ -239,7 +239,7 @@ const App: React.FC = () => {
         playerPosition: { x: playerInfoRef.current.x, y: playerInfoRef.current.y, z: playerInfoRef.current.z },
         playerRotation: playerRotation
       }));
-    }, 2000);
+    }, 2000); 
     return () => clearInterval(interval);
   }, [view, playerRotation]);
 
@@ -266,7 +266,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!musicRef.current) { musicRef.current = new Audio(MUSIC_URL); musicRef.current.loop = true; musicRef.current.volume = 0.2; }
-    if (gameState.settings.musicEnabled && view === 'game') musicRef.current.play().catch(() => { });
+    if (gameState.settings.musicEnabled && view === 'game') musicRef.current.play().catch(() => {});
     else musicRef.current.pause();
   }, [gameState.settings.musicEnabled, view]);
 
@@ -323,8 +323,8 @@ const App: React.FC = () => {
         let tempDelta = isNight ? -0.25 : -0.08;
         let nearestFireDist = Infinity;
         prev.campfires.forEach(cf => {
-          const dist = Math.sqrt(Math.pow(playerInfoRef.current.x - cf.x, 2) + Math.pow(playerInfoRef.current.z - cf.z, 2));
-          if (dist < nearestFireDist) nearestFireDist = dist;
+           const dist = Math.sqrt(Math.pow(playerInfoRef.current.x - cf.x, 2) + Math.pow(playerInfoRef.current.z - cf.z, 2));
+           if (dist < nearestFireDist) nearestFireDist = dist;
         });
         if (nearestFireDist < 8) { tempDelta += 0.8 * Math.max(0, Math.min(1, (8 - nearestFireDist) / 6)); setIsWarmingUp(tempDelta > 0); }
         else setIsWarmingUp(false);
@@ -346,9 +346,9 @@ const App: React.FC = () => {
 
   return (
     <div className="w-screen h-screen bg-slate-950 text-white font-sans overflow-hidden">
-      <GameScene
+      <GameScene 
         key={gameKey} ref={sceneRef} initialPosition={gameState.playerPosition} initialRotation={gameState.playerRotation}
-        onInteract={setInteraction}
+        onInteract={setInteraction} 
         onCollect={(t) => {
           const icons: Record<string, string> = { Apple: '🍎', Wood: '🪵', Stone: '🪨', Berries: '🍒', 'Raw Meat': '🥩', Arrow: '🏹' };
           onCollectItem(t, icons[t] || '📦');
@@ -363,27 +363,27 @@ const App: React.FC = () => {
         time={gameState.time} weather={gameState.weather} isLocked={isLocked} isMobile={isMobile} mobileInput={mobileInput}
         sfxEnabled={gameState.settings.sfxEnabled} campfires={gameState.campfires} isCraftingOpen={isCraftingOpen}
       />
-      <UIOverlay
-        gameState={gameState} interaction={interaction} onUseItem={handleUseItem} onCraft={handleCraft} isVisible={view === 'game'}
-        isCraftingOpen={isCraftingOpen} setIsCraftingOpen={setIsCraftingOpen} playerRotation={playerRotation}
-        activeToolId={activeToolId} onMobileInput={setMobileInput} isMobile={isMobile} onCook={() => handleUseItem('campfire')} cookingItem={null}
-        isHungerCritical={gameState.stats.hunger < 20} isThirstCritical={gameState.stats.thirst < 20} isWarmingUp={isWarmingUp} showTodoList={true}
+      <UIOverlay 
+        gameState={gameState} interaction={interaction} onUseItem={handleUseItem} onCraft={handleCraft} isVisible={view === 'game'} 
+        isCraftingOpen={isCraftingOpen} setIsCraftingOpen={setIsCraftingOpen} playerRotation={playerRotation} 
+        activeToolId={activeToolId} onMobileInput={setMobileInput} isMobile={isMobile} onCook={() => handleUseItem('campfire')} cookingItem={null} 
+        isHungerCritical={gameState.stats.hunger < 20} isThirstCritical={gameState.stats.thirst < 20} isWarmingUp={isWarmingUp} showTodoList={true} 
         onToggleLanguage={toggleLanguage}
       />
-
+      
       {/* Notifications - Sol Alt Bölge */}
       <div className="fixed bottom-32 left-8 z-[200] flex flex-col-reverse gap-2 pointer-events-none">
         {notifications.map(n => {
           // Check if it's an item key to add "Collected" suffix
           const isItem = !!TRANSLATIONS.en[n.text as keyof typeof TRANSLATIONS.en] || !!TRANSLATIONS.tr[n.text as keyof typeof TRANSLATIONS.tr];
           const translatedText = t[n.text as keyof typeof t] || n.text;
-
+          
           return (
             <div key={n.id} className="bg-indigo-600/90 backdrop-blur-xl px-4 py-2 rounded-xl border border-white/20 shadow-2xl animate-in slide-in-from-left flex items-center gap-3">
-              <span className="text-xl">{n.icon}</span>
-              <span className="text-[10px] font-black uppercase tracking-widest">
-                {translatedText} {isItem ? t.collected : ''}
-              </span>
+               <span className="text-xl">{n.icon}</span>
+               <span className="text-[10px] font-black uppercase tracking-widest">
+                 {translatedText} {isItem ? t.collected : ''}
+               </span>
             </div>
           );
         })}
@@ -401,9 +401,9 @@ const App: React.FC = () => {
           </div>
           {showNewGameConfirm && (
             <div className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center p-8 z-[60] animate-in zoom-in-95">
-              <p className="text-red-400 font-black mb-6 uppercase tracking-widest text-center">{t.resetProgress}?<br /><span className="text-xs text-white/40">Tüm ilerlemeniz silinecek.</span></p>
-              <button onClick={startNewGame} className="w-64 py-4 bg-red-600 rounded-xl font-black text-xl mb-4 hover:bg-red-500 active:scale-95 transition-all">{t.newGame}</button>
-              <button onClick={() => setShowNewGameConfirm(false)} className="w-64 py-4 bg-white/10 rounded-xl font-black text-xl hover:bg-white/20 active:scale-95 transition-all">{t.close}</button>
+               <p className="text-red-400 font-black mb-6 uppercase tracking-widest text-center">{t.resetProgress}?<br/><span className="text-xs text-white/40">Tüm ilerlemeniz silinecek.</span></p>
+               <button onClick={startNewGame} className="w-64 py-4 bg-red-600 rounded-xl font-black text-xl mb-4 hover:bg-red-500 active:scale-95 transition-all">{t.newGame}</button>
+               <button onClick={() => setShowNewGameConfirm(false)} className="w-64 py-4 bg-white/10 rounded-xl font-black text-xl hover:bg-white/20 active:scale-95 transition-all">{t.close}</button>
             </div>
           )}
         </div>
