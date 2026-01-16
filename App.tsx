@@ -167,7 +167,8 @@ const App: React.FC = () => {
         stats.energy = Math.max(0, stats.energy - SURVIVAL_DECAY_RATES.energy_base);
         stats.dirtiness = Math.min(100, stats.dirtiness + SURVIVAL_DECAY_RATES.dirtiness_gain);
 
-        const updatedFires = prev.campfires.map(f => ({ ...f, life: f.life - TIME_TICK_RATE })).filter(f => f.life > 0);
+        // Campfire decay is 4 times slower now
+        const updatedFires = prev.campfires.map(f => ({ ...f, life: f.life - (TIME_TICK_RATE / 4) })).filter(f => f.life > 0);
         
         // Find closest fire for dynamic temperature
         let minFireDist = Infinity;

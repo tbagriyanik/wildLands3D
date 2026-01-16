@@ -41,6 +41,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
   const keysRef = useRef<Record<string, boolean>>({});
   const skyRef = useRef<Sky | null>(null);
   const sunLightRef = useRef<THREE.DirectionalLight | null>(null);
+  const torchLightRef = useRef<THREE.PointLight | null>(null);
   
   const propsRef = useRef(props);
   useEffect(() => { propsRef.current = props; }, [props]);
@@ -84,7 +85,13 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
         setTimeout(() => obj.scale.setScalar(originalScale), 80);
 
         obj.userData.hp -= 1;
-        const type = obj.userData.type === 'tree' ? 'Wood' : obj.userData.type === 'bush' ? 'Berries' : 'Stone';
+        
+        let type = 'Wood';
+        if (obj.userData.type === 'bush') type = 'Berries';
+        else if (obj.userData.type === 'rock') type = 'Stone';
+        else if (obj.userData.type === 'appleTree') type = 'Apple';
+        else if (obj.userData.type === 'pearTree') type = 'Pear';
+
         propsRef.current.onCollect(type);
         if (obj.userData.hp <= 0) {
           sceneRef.current.remove(obj);
@@ -156,6 +163,13 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
     scene.add(sunLight); sunLightRef.current = sunLight;
     scene.add(new THREE.HemisphereLight(0xeeeeff, 0x444444, 0.5));
 
+    // Powerfull Torch Light attached to camera
+    const torchLight = new THREE.PointLight(0xffeebb, 0, 35);
+    torchLight.castShadow = true;
+    camera.add(torchLight);
+    scene.add(camera);
+    torchLightRef.current = torchLight;
+
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.MeshStandardMaterial({ map: grassTex }));
     ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 
@@ -174,35 +188,61 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
       if (isInWater(x, z)) return;
       const g = new THREE.Group(); g.position.set(x, 0, z);
       const baseScale = 0.8 + Math.random() * 1.0;
-      if (type === 'tree') {
+      if (type === 'tree' || type === 'appleTree' || type === 'pearTree') {
         const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 6), new THREE.MeshStandardMaterial({ map: woodTex }));
         trunk.position.y = 3; g.add(trunk);
-        const leaves = new THREE.Mesh(new THREE.SphereGeometry(2, 8, 8), new THREE.MeshStandardMaterial({ color: 0x1a4a14 }));
+        const leaves = new THREE.Mesh(new THREE.SphereGeometry(2, 8, 8), new THREE.MeshStandardMaterial({ color: type === 'tree' ? 0x1a4a14 : type === 'appleTree' ? 0x1a6a14 : 0x2a5a14 }));
         leaves.position.y = 6; g.add(leaves);
+        
+        // Add fruits
+        if (type === 'appleTree' || type === 'pearTree') {
+          for (let i = 0; i < 5; i++) {
+            const fruit = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), new THREE.MeshStandardMaterial({ color: type === 'appleTree' ? 0xff0000 : 0xcccc00 }));
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 0.5 + Math.random() * 1.2;
+            fruit.position.set(Math.cos(angle) * dist, 5.5 + Math.random() * 1.5, Math.sin(angle) * dist);
+            g.add(fruit);
+          }
+        }
       } else if (type === 'rock') {
         const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.6), new THREE.MeshStandardMaterial({ map: stoneTex }));
         rock.position.y = 0.3; rock.rotation.set(Math.random(), Math.random(), Math.random()); g.add(rock);
       } else {
         const bush = new THREE.Mesh(new THREE.SphereGeometry(0.75, 8, 8), new THREE.MeshStandardMaterial({ color: 0x225511 }));
         bush.position.y = 0.45; g.add(bush);
+        // Berries on bush
+        for (let i = 0; i < 8; i++) {
+           const berry = new THREE.Mesh(new THREE.SphereGeometry(0.06, 4, 4), new THREE.MeshStandardMaterial({ color: 0x880000 }));
+           const angle = Math.random() * Math.PI * 2;
+           berry.position.set(Math.cos(angle) * 0.6, 0.4 + Math.random() * 0.4, Math.sin(angle) * 0.6);
+           g.add(berry);
+        }
       }
       g.scale.setScalar(baseScale);
-      g.userData = { type, hp: 5, collisionRadius: type === 'tree' ? 0.8 : 0.5 };
+      g.userData = { type, hp: 5, collisionRadius: type.includes('Tree') ? 0.8 : 0.5 };
       scene.add(g); objectsRef.current.push(g);
     };
 
-    for(let i=0; i<100; i++) { 
-      createObject('tree', 50 + Math.random() * 200, 50 + Math.random() * 200); 
-      createObject('rock', 50 + Math.random() * 200, 50 + Math.random() * 200); 
-    }
+    for(let i=0; i<40; i++) { createObject('tree', 50 + Math.random() * 200, 50 + Math.random() * 200); }
+    for(let i=0; i<30; i++) { createObject('appleTree', 50 + Math.random() * 200, 50 + Math.random() * 200); }
+    for(let i=0; i<30; i++) { createObject('pearTree', 50 + Math.random() * 200, 50 + Math.random() * 200); }
+    for(let i=0; i<80; i++) { createObject('rock', 50 + Math.random() * 200, 50 + Math.random() * 200); }
+    for(let i=0; i<50; i++) { createObject('bush', 50 + Math.random() * 200, 50 + Math.random() * 200); }
 
     const createAnimal = (type: string, x: number, z: number) => {
       const g = new THREE.Group(); g.position.set(x, 0, z);
+      const isBird = type === 'partridge';
+      
       const body = new THREE.Mesh(
-        new THREE.SphereGeometry(type === 'deer' ? 0.6 : 0.3, 8, 8), 
-        new THREE.MeshStandardMaterial({ color: type === 'deer' ? 0x8b4513 : 0xefefef })
+        new THREE.SphereGeometry(type === 'deer' ? 0.6 : isBird ? 0.15 : 0.3, 8, 8), 
+        new THREE.MeshStandardMaterial({ color: type === 'deer' ? 0x8b4513 : isBird ? 0x8b8b8b : 0xefefef })
       );
-      body.position.y = type === 'deer' ? 0.6 : 0.3; g.add(body);
+      body.position.y = type === 'deer' ? 0.6 : isBird ? 0.15 : 0.3; g.add(body);
+
+      if (isBird) {
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.08, 4, 4), new THREE.MeshStandardMaterial({ color: 0xcc0000 }));
+        head.position.set(0.12, 0.22, 0); g.add(head);
+      }
       
       g.userData = { 
         type, 
@@ -210,17 +250,17 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
         state: 'idle', 
         timer: Math.random() * 3, 
         targetPos: new THREE.Vector3(x, 0, z),
-        baseSpeed: type === 'deer' ? 2.5 : 1.8,
-        runSpeed: type === 'deer' ? 7.5 : 5.5,
-        alertDist: type === 'deer' ? 18 : 10,
-        fleeDist: type === 'deer' ? 10 : 6
+        baseSpeed: type === 'deer' ? 2.5 : isBird ? 3.5 : 1.8,
+        runSpeed: type === 'deer' ? 7.5 : isBird ? 9.5 : 5.5,
+        alertDist: type === 'deer' ? 18 : isBird ? 22 : 10,
+        fleeDist: type === 'deer' ? 10 : isBird ? 12 : 6
       };
       scene.add(g); animalsRef.current.push(g);
     };
-    for(let i=0; i<15; i++) { 
-      createAnimal('rabbit', 40+Math.random()*220, 40+Math.random()*220); 
-      createAnimal('deer', 40+Math.random()*220, 40+Math.random()*220); 
-    }
+
+    for(let i=0; i<10; i++) { createAnimal('rabbit', 40+Math.random()*220, 40+Math.random()*220); }
+    for(let i=0; i<10; i++) { createAnimal('deer', 40+Math.random()*220, 40+Math.random()*220); }
+    for(let i=0; i<8; i++) { createAnimal('partridge', 40+Math.random()*220, 40+Math.random()*220); }
 
     const controls = new PointerLockControls(camera, renderer.domElement);
     controlsRef.current = controls;
@@ -235,6 +275,11 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
       const delta = 0.016;
       if (!cameraRef.current) return;
       const cam = cameraRef.current;
+
+      // Update Torch Light
+      if (torchLightRef.current) {
+        torchLightRef.current.intensity = propsRef.current.activeTorch ? 3.5 : 0;
+      }
 
       // Smooth Zoom
       currentFov.current = THREE.MathUtils.lerp(currentFov.current, targetFov.current, 0.1);
@@ -257,7 +302,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
           if (a.userData.state !== 'flee') {
             a.userData.state = 'flee';
             const escapeDir = a.position.clone().sub(cam.position).normalize();
-            a.userData.targetPos.copy(a.position).add(escapeDir.multiplyScalar(20));
+            a.userData.targetPos.copy(a.position).add(escapeDir.multiplyScalar(30));
           }
         } else if (playerDist < a.userData.alertDist) {
           if (a.userData.state !== 'flee') {
@@ -288,8 +333,9 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
           const targetRot = Math.atan2(dir.x, dir.z);
           a.rotation.y = THREE.MathUtils.lerp(a.rotation.y, targetRot, 0.1);
           a.position.add(dir.multiplyScalar(delta * moveSpeed));
-          if (a.userData.type === 'rabbit') {
-            a.position.y = Math.abs(Math.sin(Date.now() * 0.01 * moveSpeed)) * 0.3;
+          
+          if (a.userData.type === 'rabbit' || a.userData.type === 'partridge') {
+            a.position.y = Math.abs(Math.sin(Date.now() * 0.01 * moveSpeed)) * (a.userData.type === 'partridge' ? 0.6 : 0.3);
           }
         }
       });
@@ -306,14 +352,18 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
              let hitObj = hits[0].object; while(hitObj.parent && !hitObj.userData.isAnimal && hitObj.type !== 'Scene') hitObj = hitObj.parent;
              if (hitObj.userData.isAnimal) {
                 scene.remove(hitObj); animalsRef.current = animalsRef.current.filter(a => a !== hitObj);
-                propsRef.current.onCollect('Meat'); scene.remove(arrow.mesh); arrowsRef.current.splice(i, 1);
+                // Big animals drop more meat
+                const meatCount = hitObj.userData.type === 'deer' ? 3 : 1;
+                for(let k=0; k<meatCount; k++) propsRef.current.onCollect('Meat');
+                scene.remove(arrow.mesh); arrowsRef.current.splice(i, 1);
              } else { arrow.active = false; arrow.mesh.position.copy(hits[0].point); }
           }
-        } else if (cam.position.distanceTo(arrow.mesh.position) < 2.5) {
-          propsRef.current.onInteract({ type: 'arrow' });
-          if (keysRef.current['keye']) {
-            propsRef.current.onCollect('Arrow'); scene.remove(arrow.mesh); arrowsRef.current.splice(i, 1);
-            keysRef.current['keye'] = false;
+        } else {
+          // Automatic arrow collection
+          if (cam.position.distanceTo(arrow.mesh.position) < 2.2) {
+            propsRef.current.onCollect('Arrow');
+            scene.remove(arrow.mesh);
+            arrowsRef.current.splice(i, 1);
           }
         }
       }

@@ -80,7 +80,8 @@ export const TRANSLATIONS = {
     off: "OFF",
     cook: "COOK",
     fuel: "FUEL",
-    requiresFire: "REQUIRES FIRE"
+    requiresFire: "REQUIRES FIRE",
+    partridge: "HUNT PARTRIDGE"
   },
   tr: {
     newGame: "YENİ OYUN",
@@ -122,7 +123,8 @@ export const TRANSLATIONS = {
     off: "KAPALI",
     cook: "PİŞİR",
     fuel: "YAKIT",
-    requiresFire: "ATEŞ GEREKLİ"
+    requiresFire: "ATEŞ GEREKLİ",
+    partridge: "KEKLİK AVLA"
   }
 };
 
