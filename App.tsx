@@ -6,7 +6,7 @@ import { GameState, InteractionTarget, MobileInput } from './types';
 import { INITIAL_STATS, SURVIVAL_DECAY_RATES, TRANSLATIONS, SFX_URLS, MUSIC_URL, TIME_TICK_RATE } from './constants';
 
 const SAVE_KEY = 'wildlands_survival_v5.6'; 
-const VERSION = 'v5.6.2 "The Warmth Update"';
+const VERSION = 'v5.6.3 "The Fluid Update"';
 const SPAWN_X = 160; 
 const CENTER_Z = 120;
 
@@ -109,7 +109,12 @@ const App: React.FC = () => {
       else if (item.name === 'Cooked Meat') { stats.hunger = Math.min(100, stats.hunger + 55); stats.health = Math.min(100, stats.health + 25); stats.energy = Math.min(100, stats.energy + 20); playSFX(SFX_URLS.eat_crunchy); consumed = true; }
       else if (['Apple', 'Pear', 'Berries'].includes(item.name)) { stats.hunger = Math.min(100, stats.hunger + 12); stats.thirst = Math.min(100, stats.thirst + 8); playSFX(SFX_URLS.eat_crunchy); consumed = true; }
       else if (item.name === 'Cooked Fruit') { stats.hunger = Math.min(100, stats.hunger + 35); stats.thirst = Math.min(100, stats.thirst + 15); stats.health = Math.min(100, stats.health + 10); stats.energy = Math.min(100, stats.energy + 10); playSFX(SFX_URLS.eat_crunchy); consumed = true; }
-      else if (item.name === 'Water' || item.name === 'Waterskin') { if (stats.thirst >= 100) return prev; stats.thirst = Math.min(100, stats.thirst + 40); playSFX(SFX_URLS.drink_swallow); if (item.name === 'Water') consumed = true; }
+      else if (item.name === 'Water' || item.name === 'Waterskin') { 
+        if (stats.thirst >= 100 && item.name !== 'Waterskin') return prev; 
+        stats.thirst = Math.min(100, stats.thirst + 40); 
+        playSFX(SFX_URLS.drink_swallow); 
+        if (item.name === 'Water') consumed = true; 
+      }
 
       if (consumed) {
         const newInv = [...prev.inventory];
@@ -167,10 +172,8 @@ const App: React.FC = () => {
         stats.energy = Math.max(0, stats.energy - SURVIVAL_DECAY_RATES.energy_base);
         stats.dirtiness = Math.min(100, stats.dirtiness + SURVIVAL_DECAY_RATES.dirtiness_gain);
 
-        // Campfire decay is 4 times slower now
         const updatedFires = prev.campfires.map(f => ({ ...f, life: f.life - (TIME_TICK_RATE / 4) })).filter(f => f.life > 0);
         
-        // Find closest fire for dynamic temperature
         let minFireDist = Infinity;
         updatedFires.forEach(cf => {
           const d = Math.sqrt(Math.pow(playerInfoRef.current.x - cf.x, 2) + Math.pow(playerInfoRef.current.z - cf.z, 2));
@@ -180,24 +183,20 @@ const App: React.FC = () => {
         const isNearFire = minFireDist < 8;
         const isNight = prev.time > 1900 || prev.time < 500;
         
-        // Temperature logic
         let tempChange = isNight ? -SURVIVAL_DECAY_RATES.temp_night_drop : -SURVIVAL_DECAY_RATES.temp_day_drop;
         if (isNearFire) {
           const proximityMult = Math.max(0, 1 - (minFireDist / 8));
           tempChange += (SURVIVAL_DECAY_RATES.temp_fire_gain * proximityMult * 12);
-          
-          // Bonus health/energy if near fire
           stats.health = Math.min(100, stats.health + 0.8 * proximityMult);
           stats.energy = Math.min(100, stats.energy + 1.2 * proximityMult);
         }
         stats.temperature = Math.max(0, Math.min(100, stats.temperature + tempChange));
 
-        // Damage penalties
         let healthPenalty = 0;
         if (stats.hunger < 10) healthPenalty += 0.4;
         if (stats.thirst < 10) healthPenalty += 0.6;
         if (stats.dirtiness > 85) healthPenalty += 0.15;
-        if (stats.temperature < 15) healthPenalty += 0.8; // Freezing damage
+        if (stats.temperature < 15) healthPenalty += 0.8;
         
         stats.health = Math.max(0, stats.health - healthPenalty);
         if (stats.health <= 0) setIsGameOver(true);
@@ -214,27 +213,39 @@ const App: React.FC = () => {
     setGameState(prev => {
       const t = TRANSLATIONS[prev.settings.language];
       if (type === 'Water') {
-        const hasWaterskin = prev.inventory.some(i => i.name === 'Waterskin');
-        const alreadyHasWater = prev.inventory.find(i => i.name === 'Water')?.count || 0;
-        if (hasWaterskin) {
-          if (alreadyHasWater >= 1) { addNotification(t.waterskin + " IS ALREADY FULL"); return prev; }
+        const waterskinCount = prev.inventory.find(i => i.name === 'Waterskin')?.count || 0;
+        const currentWaterCount = prev.inventory.find(i => i.name === 'Water')?.count || 0;
+
+        if (waterskinCount > 0) {
+          if (currentWaterCount >= waterskinCount) { 
+            addNotification(t.waterskin + " " + (prev.settings.language === 'tr' ? 'ZATEN DOLU' : 'ALREADY FULL')); 
+            return prev; 
+          }
           playSFX(SFX_URLS.drink_swallow);
-          addNotification(t.waterskin + " Filled");
+          addNotification(`${waterskinCount} ${t.waterskin} ${prev.settings.language === 'tr' ? 'Dolduruldu' : 'Filled'}`);
+          
           const inv = [...prev.inventory];
-          inv.push({ id: Math.random().toString(), name: 'Water', type: 'food', count: 1 });
+          const waterIdx = inv.findIndex(i => i.name === 'Water');
+          if (waterIdx > -1) {
+            inv[waterIdx] = { ...inv[waterIdx], count: waterskinCount };
+          } else {
+            inv.push({ id: Math.random().toString(), name: 'Water', type: 'food', count: waterskinCount });
+          }
           return { ...prev, inventory: inv };
         } else {
+          // Direct drinking if no waterskin
           playSFX(SFX_URLS.drink_swallow);
           addNotification(t.water + " " + t.collected);
           return { ...prev, stats: { ...prev.stats, thirst: Math.min(100, prev.stats.thirst + 40) } };
         }
       }
+
       playSFX(type === 'Wood' ? SFX_URLS.collect_wood : type === 'Stone' ? SFX_URLS.collect_stone : SFX_URLS.ui_click);
       addNotification((t[type.toLowerCase() as keyof typeof t] || type) + " " + t.collected);
       const inv = [...prev.inventory];
       const existingIdx = inv.findIndex(i => i.name === type);
       if (existingIdx > -1) inv[existingIdx].count += 1;
-      else inv.push({ id: Math.random().toString(), name: type, type: type === 'Meat' ? 'food' : 'resource', count: 1 });
+      else inv.push({ id: Math.random().toString(), name: type, type: (type === 'Meat' || type === 'Apple' || type === 'Pear' || type === 'Berries') ? 'food' : 'resource', count: 1 });
       return { ...prev, inventory: inv };
     });
   };
@@ -307,6 +318,11 @@ const App: React.FC = () => {
 
   const startNewGame = useCallback(() => { localStorage.removeItem(SAVE_KEY); window.location.reload(); }, []);
 
+  const setLanguage = (lang: 'tr' | 'en') => {
+    setGameState(prev => ({ ...prev, settings: { ...prev.settings, language: lang } }));
+    playSFX(SFX_URLS.ui_click);
+  };
+
   const t = TRANSLATIONS[gameState.settings.language];
 
   return (
@@ -350,32 +366,48 @@ const App: React.FC = () => {
             onUseItem={handleUseItem}
             playerRotation={playerRotation}
             notifications={notifications}
-            onToggleLanguage={() => setGameState(p => ({...p, settings: {...p.settings, language: p.settings.language === 'tr' ? 'en' : 'tr'}}))}
+            onToggleLanguage={() => setLanguage(gameState.settings.language === 'tr' ? 'en' : 'tr')}
             isNearFire={gameState.campfires.some(cf => Math.sqrt(Math.pow(playerInfoRef.current.x - cf.x, 2) + Math.pow(playerInfoRef.current.z - cf.z, 2)) < 8)}
           />
           {view === 'menu' && (
             <div className="absolute inset-0 z-[100] bg-slate-950/40 backdrop-blur-xl flex flex-col items-center justify-center p-8 overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-950/20 to-slate-950 pointer-events-none" />
                 <div className="flex flex-col items-center animate-in zoom-in fade-in duration-500 relative z-10">
-                  <h1 className="text-[10rem] leading-none font-black italic mb-2 text-orange-500 tracking-tighter drop-shadow-[0_0_50px_rgba(249,115,22,0.4)]">WILD LANDS</h1>
-                  <p className="text-white/40 font-black uppercase tracking-[0.5em] mb-16 text-lg">{t.slogan}</p>
-                  <div className="flex flex-col gap-5 w-80 pointer-events-auto">
-                    <button onClick={() => { setView('game'); setTimeout(() => sceneRef.current?.requestLock(), 200); }} className="group relative py-6 bg-emerald-600 rounded-3xl font-black text-2xl overflow-hidden hover:scale-105 hover:bg-emerald-500 transition-all shadow-[0_20px_40px_rgba(16,185,129,0.3)]">
+                  <h1 className="text-[6rem] sm:text-[10rem] leading-none font-black italic mb-2 text-orange-500 tracking-tighter drop-shadow-[0_0_50px_rgba(249,115,22,0.4)] text-center">WILD LANDS</h1>
+                  <p className="text-white/40 font-black uppercase tracking-[0.3em] sm:tracking-[0.5em] mb-12 sm:mb-16 text-sm sm:text-lg text-center px-4">{t.slogan}</p>
+                  
+                  <div className="flex gap-4 mb-8 sm:mb-12 pointer-events-auto">
+                    <button 
+                      onClick={() => setLanguage('tr')}
+                      className={`px-4 py-2 rounded-xl font-black border transition-all ${gameState.settings.language === 'tr' ? 'bg-orange-600 border-orange-400 text-white' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}
+                    >
+                      TR
+                    </button>
+                    <button 
+                      onClick={() => setLanguage('en')}
+                      className={`px-4 py-2 rounded-xl font-black border transition-all ${gameState.settings.language === 'en' ? 'bg-orange-600 border-orange-400 text-white' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}
+                    >
+                      EN
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col gap-5 w-64 sm:w-80 pointer-events-auto">
+                    <button onClick={() => { setView('game'); setTimeout(() => sceneRef.current?.requestLock(), 200); }} className="group relative py-5 sm:py-6 bg-emerald-600 rounded-2xl sm:rounded-3xl font-black text-xl sm:text-2xl overflow-hidden hover:scale-105 hover:bg-emerald-500 transition-all shadow-[0_20px_40px_rgba(16,185,129,0.3)]">
                       <span className="relative z-10">{t.continue}</span>
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full duration-1000 transition-transform" />
                     </button>
-                    <button onClick={startNewGame} className="py-5 bg-white/5 border border-orange-500/20 rounded-3xl font-black text-xl hover:bg-orange-500/10 transition-all text-orange-200 backdrop-blur-md">
+                    <button onClick={startNewGame} className="py-4 sm:py-5 bg-white/5 border border-orange-500/20 rounded-2xl sm:rounded-3xl font-black text-lg sm:text-xl hover:bg-orange-500/10 transition-all text-orange-200 backdrop-blur-md">
                       {t.newGame}
                     </button>
                   </div>
-                  <p className="absolute -bottom-32 text-[10px] font-black tracking-widest text-white/20 uppercase">{VERSION}</p>
+                  <p className="absolute -bottom-24 sm:-bottom-32 text-[8px] sm:text-[10px] font-black tracking-widest text-white/20 uppercase">{VERSION}</p>
                 </div>
             </div>
           )}
           {isGameOver && (
             <div className="absolute inset-0 z-[200] bg-black/90 flex flex-col items-center justify-center backdrop-blur-sm animate-in fade-in duration-700">
-              <h1 className="text-9xl font-black italic text-red-600 mb-8 uppercase tracking-tighter scale-110 drop-shadow-[0_0_30px_rgba(220,38,38,0.5)]">{t.youDied}</h1>
-              <button onClick={startNewGame} className="px-16 py-6 bg-red-600 text-white rounded-3xl font-black text-3xl hover:scale-110 pointer-events-auto transition-transform shadow-2xl">RESTART</button>
+              <h1 className="text-6xl sm:text-9xl font-black italic text-red-600 mb-8 uppercase tracking-tighter scale-110 drop-shadow-[0_0_30px_rgba(220,38,38,0.5)]">{t.youDied}</h1>
+              <button onClick={startNewGame} className="px-12 py-5 sm:px-16 sm:py-6 bg-red-600 text-white rounded-2xl sm:rounded-3xl font-black text-2xl sm:text-3xl hover:scale-110 pointer-events-auto transition-transform shadow-2xl">RESTART</button>
             </div>
           )}
         </>
