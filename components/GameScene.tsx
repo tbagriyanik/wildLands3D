@@ -3,12 +3,13 @@ import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import { Sky } from 'three/examples/jsm/objects/Sky';
-import { InteractionTarget, CampfireData, MobileInput } from '../types';
+import { InteractionTarget, CampfireData, ShelterData, MobileInput } from '../types';
 import { TEXTURES, SFX_URLS } from '../constants';
 
 interface GameSceneProps {
   time: number;
   campfires: CampfireData[];
+  shelters: ShelterData[];
   isLocked: boolean;
   isMobile: boolean;
   mobileInput: MobileInput;
@@ -54,11 +55,11 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
   const JUMP_FORCE = 12.0;
 
   const campfireMeshes = useRef<Map<string, THREE.Group>>(new Map());
+  const shelterMeshes = useRef<Map<string, THREE.Group>>(new Map());
 
   useImperativeHandle(ref, () => ({
     requestLock: () => {
       if (controlsRef.current && !controlsRef.current.isLocked) {
-        // Modern browsers return a promise from lock()
         const lockResult = controlsRef.current.lock();
         if (lockResult instanceof Promise) {
           lockResult.catch(err => {
@@ -81,21 +82,23 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
     const ray = new THREE.Raycaster();
     ray.setFromCamera(new THREE.Vector2(0, 0), cameraRef.current);
     
-    // Water interaction
     const waterHits = ray.intersectObjects(waterRef.current, true);
     if (waterHits.length > 0 && waterHits[0].distance < 4.5) {
       propsRef.current.onCollect('Water');
       return;
     }
 
-    // Objects and Campfire interaction
-    const hits = ray.intersectObjects([...objectsRef.current, ...Array.from(campfireMeshes.current.values())], true);
+    const hits = ray.intersectObjects([...objectsRef.current, ...Array.from(campfireMeshes.current.values()), ...Array.from(shelterMeshes.current.values())], true);
     if (hits.length > 0 && hits[0].distance < 4.5) {
       let obj = hits[0].object; 
       while(obj.parent && !obj.userData.type && obj.type !== 'Scene') obj = obj.parent;
       
+      if (obj.userData.type === 'shelter') {
+        propsRef.current.onCollect('Sleep');
+        return;
+      }
+
       if (obj.userData.type && obj.userData.type !== 'campfire') {
-        // Impact Shake Animation
         const originalScale = obj.scale.x;
         obj.scale.setScalar(originalScale * 1.15);
         setTimeout(() => obj.scale.setScalar(originalScale), 80);
@@ -157,6 +160,52 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
     return group;
   };
 
+  const createShelterModel = (id: string, x: number, z: number, rotation: number) => {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = rotation;
+
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x4a2c1d });
+    
+    // Floor
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 4), woodMat);
+    floor.position.y = 0.05; group.add(floor);
+
+    // Side Walls (A-frame style)
+    const wallHeight = 3.2;
+    const sideL = new THREE.Mesh(new THREE.BoxGeometry(0.1, wallHeight, 4), woodMat);
+    sideL.position.set(-1.3, wallHeight/2 - 0.2, 0); sideL.rotation.z = Math.PI / 6; group.add(sideL);
+    
+    const sideR = new THREE.Mesh(new THREE.BoxGeometry(0.1, wallHeight, 4), woodMat);
+    sideR.position.set(1.3, wallHeight/2 - 0.2, 0); sideR.rotation.z = -Math.PI / 6; group.add(sideR);
+
+    // Back Wall
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.4, 0.1), woodMat);
+    backWall.position.set(0, 1.1, -1.95); group.add(backWall);
+
+    // Sleeping Mat (Interior)
+    const bedMat = new THREE.MeshStandardMaterial({ color: 0x2d5a27 });
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.15, 2.4), bedMat);
+    bed.position.set(0.4, 0.15, -0.4); group.add(bed);
+
+    // Permanent Fire inside shelter (Front side interior)
+    const fireGroup = new THREE.Group();
+    fireGroup.position.set(-0.6, 0.1, 1.2);
+    
+    const stones = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.08, 6, 8), new THREE.MeshStandardMaterial({ color: 0x444444 }));
+    stones.rotation.x = Math.PI / 2; fireGroup.add(stones);
+
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.5, 8), new THREE.MeshBasicMaterial({ color: 0xff6600, transparent: true, opacity: 0.9 }));
+    flame.position.y = 0.25; fireGroup.add(flame);
+    
+    const light = new THREE.PointLight(0xffaa33, 3, 12);
+    light.position.y = 0.6; fireGroup.add(light);
+    group.add(fireGroup);
+
+    group.userData = { id, type: 'shelter', collisionRadius: 2.5 };
+    return group;
+  };
+
   useEffect(() => {
     if (!mountRef.current) return;
     const scene = new THREE.Scene(); sceneRef.current = scene;
@@ -203,6 +252,9 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
       if (isInWater(x, z)) return;
       const g = new THREE.Group(); g.position.set(x, 0, z);
       const baseScale = 0.8 + Math.random() * 1.0;
+      
+      const isFoliage = type === 'tree' || type === 'appleTree' || type === 'pearTree' || type === 'bush';
+
       if (type === 'tree' || type === 'appleTree' || type === 'pearTree') {
         const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 6), new THREE.MeshStandardMaterial({ map: woodTex }));
         trunk.position.y = 3; g.add(trunk);
@@ -232,7 +284,16 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
         }
       }
       g.scale.setScalar(baseScale);
-      g.userData = { type, hp: 5, collisionRadius: type.includes('Tree') ? 0.8 : 0.5 };
+      
+      g.userData = { 
+        type, 
+        hp: 5, 
+        collisionRadius: type.includes('Tree') ? 0.8 : 0.5,
+        swayOffset: Math.random() * Math.PI * 2,
+        swaySpeed: 0.001 + Math.random() * 0.001,
+        isFoliage: isFoliage
+      };
+      
       scene.add(g); objectsRef.current.push(g);
     };
 
@@ -297,6 +358,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
     const animate = () => {
       requestAnimationFrame(animate); 
       const delta = 0.016;
+      const now = Date.now();
       if (!cameraRef.current) return;
       const cam = cameraRef.current;
 
@@ -309,6 +371,15 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
         cam.fov = currentFov.current;
         cam.updateProjectionMatrix();
       }
+
+      objectsRef.current.forEach(obj => {
+        if (obj.userData.isFoliage) {
+          const sway = Math.sin(now * obj.userData.swaySpeed + obj.userData.swayOffset);
+          const maxSway = obj.userData.type === 'bush' ? 0.05 : 0.02;
+          obj.rotation.z = sway * maxSway;
+          obj.rotation.x = sway * maxSway * 0.5;
+        }
+      });
 
       const gameTime = propsRef.current.time;
       const sunAngle = (gameTime / 2400) * Math.PI * 2 - Math.PI / 2;
@@ -357,7 +428,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
           a.position.add(dir.multiplyScalar(delta * moveSpeed));
           
           if (a.userData.type === 'rabbit' || a.userData.type === 'partridge') {
-            a.position.y = Math.abs(Math.sin(Date.now() * 0.01 * moveSpeed)) * (a.userData.type === 'partridge' ? 0.6 : 0.3);
+            a.position.y = Math.abs(Math.sin(now * 0.01 * moveSpeed)) * (a.userData.type === 'partridge' ? 0.6 : 0.3);
           }
         }
       });
@@ -390,7 +461,7 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
 
       const interactRay = new THREE.Raycaster();
       interactRay.setFromCamera(new THREE.Vector2(0, 0), cam);
-      const interactHits = interactRay.intersectObjects([...objectsRef.current, ...Array.from(campfireMeshes.current.values()), ...waterRef.current], true);
+      const interactHits = interactRay.intersectObjects([...objectsRef.current, ...Array.from(campfireMeshes.current.values()), ...Array.from(shelterMeshes.current.values()), ...waterRef.current], true);
       if (interactHits.length > 0 && interactHits[0].distance < 4.5) {
         let obj = interactHits[0].object; while(obj.parent && !obj.userData.type) obj = obj.parent;
         propsRef.current.onInteract({ type: obj.userData.type as any || 'none', id: obj.userData.id });
@@ -415,13 +486,25 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
         propsRef.current.onPositionUpdate({ x: cam.position.x, y: cam.position.y, z: cam.position.z, dirX: dir.x, dirZ: dir.z, rot: Math.atan2(dir.x, dir.z) });
       }
 
-      const existingIds = new Set(propsRef.current.campfires.map(f => f.id));
-      campfireMeshes.current.forEach((m, id) => { if (!existingIds.has(id)) { scene.remove(m); campfireMeshes.current.delete(id); } });
+      const currentCampfireIds = new Set(propsRef.current.campfires.map(f => f.id));
+      campfireMeshes.current.forEach((m, id) => { if (!currentCampfireIds.has(id)) { scene.remove(m); campfireMeshes.current.delete(id); } });
       propsRef.current.campfires.forEach(cf => {
         let mesh = campfireMeshes.current.get(cf.id);
         if (!mesh) { mesh = createCampfireModel(cf.id, cf.x, cf.z); scene.add(mesh); campfireMeshes.current.set(cf.id, mesh); }
         const flame = mesh.children.find(c => c.type === 'Mesh' && (c as THREE.Mesh).geometry.type === 'ConeGeometry');
-        if (flame) { flame.scale.setScalar(0.9 + Math.sin(Date.now() * 0.01) * 0.1); }
+        if (flame) { flame.scale.setScalar(0.9 + Math.sin(now * 0.01) * 0.1); }
+      });
+
+      const currentShelterIds = new Set(propsRef.current.shelters.map(s => s.id));
+      shelterMeshes.current.forEach((m, id) => { if (!currentShelterIds.has(id)) { scene.remove(m); shelterMeshes.current.delete(id); } });
+      propsRef.current.shelters.forEach(sh => {
+        let mesh = shelterMeshes.current.get(sh.id);
+        if (!mesh) { mesh = createShelterModel(sh.id, sh.x, sh.z, sh.rotation); scene.add(mesh); shelterMeshes.current.set(sh.id, mesh); }
+        const fire = mesh.children.find(c => c.type === 'Group');
+        if (fire) {
+          const flame = fire.children.find(c => c.type === 'Mesh' && (c as THREE.Mesh).geometry.type === 'ConeGeometry');
+          if (flame) flame.scale.setScalar(0.9 + Math.sin(now * 0.015) * 0.15);
+        }
       });
 
       renderer.render(scene, camera);

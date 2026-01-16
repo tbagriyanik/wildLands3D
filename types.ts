@@ -8,7 +8,7 @@ export interface PlayerStats {
   thirst: number;
   energy: number;
   temperature: number;
-  dirtiness: number; // Yeni: 0-100 arası kirlilik seviyesi
+  dirtiness: number;
 }
 
 export interface InventoryItem {
@@ -32,6 +32,13 @@ export interface CampfireData {
   life: number;
 }
 
+export interface ShelterData {
+  id: string;
+  x: number;
+  z: number;
+  rotation: number;
+}
+
 export interface GameState {
   stats: PlayerStats;
   inventory: InventoryItem[];
@@ -40,6 +47,7 @@ export interface GameState {
   settings: GameSettings;
   weather: WeatherType;
   campfires: CampfireData[];
+  shelters: ShelterData[];
   playerPosition: { x: number, y: number, z: number };
   playerRotation: number;
   activeTorch: boolean;
@@ -48,7 +56,7 @@ export interface GameState {
 }
 
 export interface InteractionTarget {
-  type: 'tree' | 'appleTree' | 'bush' | 'water' | 'rock' | 'campfire' | 'critter' | 'arrow' | 'partridge' | 'none' | 'boar' | 'fox' | 'wolf' | 'rabbit' | 'deer' | 'squirrel' | 'meat';
+  type: 'tree' | 'appleTree' | 'bush' | 'water' | 'rock' | 'campfire' | 'shelter' | 'critter' | 'arrow' | 'partridge' | 'none' | 'boar' | 'fox' | 'wolf' | 'rabbit' | 'deer' | 'squirrel' | 'meat';
   id?: string;
 }
 

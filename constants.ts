@@ -4,7 +4,7 @@ export const INITIAL_STATS = {
   hunger: 100,
   thirst: 100,
   energy: 100,
-  temperature: 100, // 0-100 ölçeğine çekildi
+  temperature: 20, // Başlangıç sıcaklığı 20°C
   dirtiness: 0,
 };
 
@@ -16,9 +16,8 @@ export const SURVIVAL_DECAY_RATES = {
   energy_sprint: 0.5,
   energy_recovery_fire: 0.8,
   health_recovery_fire: 0.3,
-  temp_night_drop: 0.08,  // Gece daha sert soğuk
-  temp_day_drop: 0.02,    // Gündüz hafif soğuma
-  temp_fire_gain: 0.35,   // Ateşten gelen baz ısı kazancı
+  temp_lerp_speed: 0.02, // Ortam sıcaklığına uyum hızı
+  temp_fire_bonus: 15,    // Ateşin sağladığı ek ısı (°C)
   dirtiness_gain: 0.08, 
 };
 
@@ -50,7 +49,7 @@ export const TRANSLATIONS = {
     hunger: "HUNGER",
     thirst: "THIRST",
     energy: "ENERGY",
-    temp: "WARMTH",
+    temp: "TEMP",
     dirt: "DIRT",
     emptyInventory: "Empty...",
     tree: "CHOP TREE",
@@ -60,6 +59,8 @@ export const TRANSLATIONS = {
     rock: "COLLECT STONE",
     water: "DRINK / FILL WATER",
     campfire: "CAMPFIRE",
+    shelter: "SHELTER (REST)",
+    sleep: "SLEEP",
     bow: "BOW",
     arrow: "ARROW",
     torch: "TORCH",
@@ -103,6 +104,8 @@ export const TRANSLATIONS = {
     rock: "TAŞ TOPLA",
     water: "SU İÇ / DOLDUR",
     campfire: "KAMP ATEŞİ",
+    shelter: "BARINAK (DİNLEN)",
+    sleep: "UYU",
     bow: "YAY",
     arrow: "OK",
     torch: "MEŞALE",

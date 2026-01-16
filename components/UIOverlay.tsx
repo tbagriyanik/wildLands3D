@@ -34,6 +34,7 @@ const getItemIcon = (name: string): string => {
     case 'Meat': return '🍗';
     case 'Cooked Meat': return '🍖';
     case 'Cooked Fruit': return '🥧';
+    case 'Shelter': return '🏠';
     default: return '📦';
   }
 };
@@ -54,6 +55,8 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
     switch(type) {
       case 'campfire':
         return { can: getInventoryCount('Wood') >= 3 && getInventoryCount('Flint Stone') >= 1, msg: `3 Wood, 1 Flint` };
+      case 'shelter':
+        return { can: getInventoryCount('Wood') >= 30 && getInventoryCount('Stone') >= 20, msg: `30 Wood, 20 Stone` };
       case 'bow':
         return { can: getInventoryCount('Wood') >= 5, msg: `5 Wood` };
       case 'arrow':
@@ -96,17 +99,17 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   const minutes = Math.floor((time % 100) * 0.6);
   const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 
-  const headingDegrees = ((180 - (playerRotation * 180 / Math.PI)) + 360) % 360;
-  const compassOffset = -(headingDegrees * (100 / 90)); 
-
-  const StatCard = ({ icon, val, col, label, unit = "%" }: { icon: string, val: number, col: string, label: string, unit?: string }) => {
-    const isCritical = val < 20 && label !== t.dirt;
+  const StatCard = ({ icon, val, col, label, unit = "%", isPercent = true }: { icon: string, val: number, col: string, label: string, unit?: string, isPercent?: boolean }) => {
+    const isCritical = isPercent ? (val < 20 && label !== t.dirt) : (label === t.temp && val < 10);
+    
     return (
       <div className={`relative flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-xl sm:rounded-2xl bg-slate-900/60 border border-white/5 overflow-hidden transition-all duration-300 group ${isCritical ? 'animate-pulse ring-1 ring-red-500/50' : 'hover:bg-slate-800/80 hover:scale-105'}`}>
-        <div 
-          className="absolute bottom-0 left-0 w-full transition-all duration-1000 ease-out opacity-20 pointer-events-none"
-          style={{ height: `${Math.min(100, val)}%`, backgroundColor: col }}
-        />
+        {isPercent && (
+          <div 
+            className="absolute bottom-0 left-0 w-full transition-all duration-1000 ease-out opacity-20 pointer-events-none"
+            style={{ height: `${Math.min(100, val)}%`, backgroundColor: col }}
+          />
+        )}
         <span className="text-lg sm:text-2xl mb-0.5 sm:mb-1 relative z-10 drop-shadow-sm">{icon}</span>
         <div className="flex flex-col items-center relative z-10 leading-none">
           <div className="flex items-baseline gap-0.5">
@@ -123,16 +126,15 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
 
   return (
     <div className="absolute inset-0 pointer-events-none p-2 sm:p-4 lg:p-6 flex flex-col justify-between z-50 overflow-hidden">
-      {/* Notifications */}
-      <div className="fixed top-2 right-2 sm:top-6 sm:right-6 flex flex-col gap-1.5 sm:gap-2 z-[1000] items-end max-w-[150px] sm:max-w-xs pointer-events-none">
+      {/* Notifications Area */}
+      <div className="fixed top-4 right-4 sm:top-8 sm:right-8 flex flex-col gap-2 z-[1000] items-end max-w-[200px] sm:max-w-xs pointer-events-none">
         {notifications.map(n => (
-          <div key={n.id} className="bg-emerald-600/90 backdrop-blur-md px-2.5 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl border border-white/20 text-[8px] sm:text-[11px] font-black uppercase tracking-wider shadow-2xl animate-in slide-in-from-right duration-300">
+          <div key={n.id} className="bg-emerald-600/90 backdrop-blur-xl px-4 py-2 rounded-xl border border-white/20 text-[9px] sm:text-[12px] font-black uppercase tracking-wider shadow-2xl animate-in slide-in-from-right fade-in duration-300 transform transition-all hover:scale-105 pointer-events-auto cursor-default">
             {n.text}
           </div>
         ))}
       </div>
 
-      {/* Crosshair */}
       {!isCraftingOpen && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-0">
           <div className={`relative flex items-center justify-center transition-all duration-200 transform ${hasInteraction ? 'scale-125 sm:scale-150' : 'scale-100'}`}>
@@ -143,13 +145,12 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         </div>
       )}
 
-      {/* HUD - Top Left */}
       {!isCraftingOpen && (
         <div className="flex flex-col gap-2 pointer-events-auto max-w-[120px] sm:max-w-[200px]">
           <div className="bg-slate-950/80 backdrop-blur-3xl p-2 sm:p-4 rounded-2xl sm:rounded-[2rem] border border-white/10 flex flex-col gap-2 sm:gap-3 shadow-2xl relative overflow-hidden transition-all">
             {isNearFire && (
               <div className="absolute top-0 right-0 bg-orange-600/30 px-1.5 py-0.5 text-[6px] sm:text-[8px] font-black uppercase text-orange-400 border-l border-b border-orange-500/20 animate-pulse tracking-tighter z-20">
-                HOT
+                WARM
               </div>
             )}
             
@@ -165,10 +166,16 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
               <StatCard label={t.health} val={stats.health} icon="❤️" col={COLORS.health} />
               <StatCard label={t.hunger} val={stats.hunger} icon="🍞" col={COLORS.hunger} />
               <StatCard label={t.thirst} val={stats.thirst} icon="💧" col={COLORS.thirst} />
-              <StatCard label={t.temp} val={stats.temperature} icon="🔥" col={COLORS.temperature} unit="°C" />
+              <StatCard label={t.temp} val={stats.temperature} icon="🌡️" col={COLORS.temperature} unit="°C" isPercent={false} />
               <StatCard label={t.energy} val={stats.energy} icon="⚡" col={COLORS.energy} />
               <StatCard label={t.dirt} val={stats.dirtiness} icon="🧼" col={COLORS.dirtiness} />
             </div>
+            
+            {stats.temperature < 10 && (
+              <div className="mt-1 px-2 py-1 bg-red-500/20 border border-red-500/40 rounded-lg text-[7px] sm:text-[9px] font-black uppercase text-red-500 text-center animate-pulse">
+                {gameState.settings.language === 'tr' ? 'SOĞUK DAMAGE!' : 'FREEZING!'}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-1 sm:ml-1">
@@ -185,19 +192,17 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         </div>
       )}
 
-      {/* Interaction Label */}
       <div className="absolute top-4 sm:top-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 max-w-[80vw] sm:max-w-[90vw]">
          {interaction.type !== 'none' && (
            <div className="px-4 py-1.5 sm:px-8 sm:py-3 bg-emerald-600/90 backdrop-blur-md rounded-xl sm:rounded-2xl text-[8px] sm:text-[13px] font-black uppercase tracking-widest shadow-2xl animate-in zoom-in duration-200 border border-white/20 text-white flex flex-col items-center">
              <div className="flex items-center gap-1.5 sm:gap-3">
                <span className="bg-white text-emerald-700 px-1 py-0.5 rounded sm:rounded-md text-[7px] sm:text-[11px]">E</span>
-               {fuelPercent !== null ? `${t.campfire} (${t.fuel}: ${fuelPercent}%)` : (t[interaction.type as keyof typeof t] || interaction.type)}
+               {fuelPercent !== null ? `${t.campfire} (${t.fuel}: ${fuelPercent}%)` : (interaction.type === 'shelter' ? `${t.shelter} - ${t.sleep}` : (t[interaction.type as keyof typeof t] || interaction.type))}
              </div>
            </div>
          )}
       </div>
 
-      {/* Hotbar */}
       <div className="flex flex-col items-center gap-1 sm:gap-2 w-full mb-1 sm:mb-2 pointer-events-none">
         <div className="bg-slate-950/80 backdrop-blur-3xl p-1.5 sm:p-3 rounded-2xl sm:rounded-[2rem] border border-white/10 flex gap-1 sm:gap-2.5 pointer-events-auto shadow-2xl relative max-w-full overflow-x-auto scrollbar-hide">
           {hotbarItems.map((item, idx) => {
@@ -241,7 +246,6 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         </div>
       </div>
 
-      {/* COMPACT Crafting Menu Overlay */}
       {isCraftingOpen && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-lg pointer-events-auto z-[600] flex items-center justify-center p-4">
            <div className="bg-slate-900/90 p-4 sm:p-8 rounded-3xl border border-orange-500/30 w-full max-w-2xl shadow-2xl animate-in zoom-in duration-200 overflow-hidden flex flex-col max-h-[90vh]">
@@ -263,12 +267,12 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
               
               <div className="overflow-y-auto pr-1 custom-scrollbar space-y-4">
                 <div className="space-y-2">
-                  <div className="text-[8px] sm:text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] pl-1 border-l-2 border-emerald-500/50 mb-2">Essential Gear</div>
+                  <div className="text-[8px] sm:text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] pl-1 border-l-2 border-emerald-500/50 mb-2">Essential Gear & Shelter</div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {['campfire', 'bow', 'arrow', 'torch', 'waterskin'].map(type => {
+                    {['campfire', 'shelter', 'bow', 'arrow', 'torch', 'waterskin'].map(type => {
                        const { can, msg } = checkRequirements(type);
-                       const craftNames: Record<string, string> = { campfire: t.campfire, bow: t.bow, arrow: t.arrow, torch: t.torch, waterskin: t.waterskin };
-                       const craftIcons: Record<string, string> = { campfire: "🔥", bow: "🏹", arrow: "🎯", torch: "🔦", waterskin: "🍶" };
+                       const craftNames: Record<string, string> = { campfire: t.campfire, shelter: t.shelter, bow: t.bow, arrow: t.arrow, torch: t.torch, waterskin: t.waterskin };
+                       const craftIcons: Record<string, string> = { campfire: "🔥", shelter: "🏠", bow: "🏹", arrow: "🎯", torch: "🔦", waterskin: "🍶" };
                        return (
                          <CompactCraftItem 
                            key={type}

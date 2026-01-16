@@ -5,8 +5,8 @@ import UIOverlay from './components/UIOverlay';
 import { GameState, InteractionTarget, MobileInput } from './types';
 import { INITIAL_STATS, SURVIVAL_DECAY_RATES, TRANSLATIONS, SFX_URLS, MUSIC_URL, TIME_TICK_RATE } from './constants';
 
-const SAVE_KEY = 'wildlands_survival_v5.6'; 
-const VERSION = 'v5.6.3 "The Fluid Update"';
+const SAVE_KEY = 'wildlands_survival_v5.6.8'; 
+const VERSION = 'v5.6.8 "Thermodynamics Update"';
 const SPAWN_X = 160; 
 const CENTER_Z = 120;
 
@@ -66,7 +66,7 @@ const App: React.FC = () => {
       { id: '4', name: 'Bow', type: 'tool', count: 1 }
     ],
     day: 1, time: 800, settings: { language: 'tr', musicEnabled: true, sfxEnabled: true },
-    weather: 'sunny', campfires: [], playerPosition: { x: SPAWN_X, y: 1.8, z: CENTER_Z }, playerRotation: 0,
+    weather: 'sunny', campfires: [], shelters: [], playerPosition: { x: SPAWN_X, y: 1.8, z: CENTER_Z }, playerRotation: 0,
     activeTorch: false, activeBow: false, torchLife: 100
   });
 
@@ -86,8 +86,14 @@ const App: React.FC = () => {
 
   const addNotification = useCallback((text: string) => {
     const id = Date.now();
-    setNotifications(prev => [...prev, { id, text }]);
-    setTimeout(() => { setNotifications(prev => prev.filter(n => n.id !== id)); }, 2500);
+    setNotifications(prev => {
+      const next = [...prev, { id, text }];
+      if (next.length > 5) return next.slice(next.length - 5);
+      return next;
+    });
+    setTimeout(() => { 
+      setNotifications(prev => prev.filter(n => n.id !== id)); 
+    }, 2500);
   }, []);
 
   const playSFX = useCallback((url: string, volume = 0.4) => {
@@ -130,8 +136,6 @@ const App: React.FC = () => {
     const nextState = forceState !== undefined ? forceState : !isCraftingOpen;
     setIsCraftingOpen(nextState);
     if (!nextState) { 
-      // Re-locking usually requires user interaction, but we try anyway.
-      // Better way: UIOverlay should have a "RESUME" button that calls lock.
       setTimeout(() => sceneRef.current?.requestLock(), 50); 
     } 
     else { 
@@ -150,7 +154,6 @@ const App: React.FC = () => {
         const slot = parseInt(code.replace('Digit', ''));
         if (slot >= 1 && slot <= 7) {
           setActiveSlot(slot);
-          // Visual click feedback
           setTimeout(() => setActiveSlot(null), 150);
           
           switch(slot) {
@@ -188,23 +191,45 @@ const App: React.FC = () => {
           if (d < minFireDist) minFireDist = d;
         });
 
-        const isNearFire = minFireDist < 8;
-        const isNight = prev.time > 1900 || prev.time < 500;
-        
-        let tempChange = isNight ? -SURVIVAL_DECAY_RATES.temp_night_drop : -SURVIVAL_DECAY_RATES.temp_day_drop;
+        let minShelterDist = Infinity;
+        prev.shelters.forEach(sh => {
+          const d = Math.sqrt(Math.pow(playerInfoRef.current.x - sh.x, 2) + Math.pow(playerInfoRef.current.z - sh.z, 2));
+          if (d < minShelterDist) minShelterDist = d;
+        });
+
+        // 🌡️ TEMPERATURE LOGIC
+        // Day peak: 14:00 (1400), Night trough: 04:00 (0400)
+        const cycle = (prev.time - 400 + 2400) % 2400; 
+        const cycleNormal = Math.sin((cycle / 2400) * Math.PI * 2 - Math.PI / 2) * 0.5 + 0.5;
+        // Ambient range: Day (15-25°C), Night (0-10°C)
+        // We can define a dynamic ambient base
+        const isDayTime = prev.time >= 500 && prev.time <= 1900;
+        let ambientBaseMin = isDayTime ? 15 : 0;
+        let ambientBaseMax = isDayTime ? 25 : 10;
+        let targetAmbient = ambientBaseMin + cycleNormal * (ambientBaseMax - ambientBaseMin);
+
+        // Heat sources
+        const isNearFire = minFireDist < 8 || minShelterDist < 6;
         if (isNearFire) {
-          const proximityMult = Math.max(0, 1 - (minFireDist / 8));
-          tempChange += (SURVIVAL_DECAY_RATES.temp_fire_gain * proximityMult * 12);
-          stats.health = Math.min(100, stats.health + 0.8 * proximityMult);
-          stats.energy = Math.min(100, stats.energy + 1.2 * proximityMult);
+          const proximityMult = Math.max(0, 1 - (Math.min(minFireDist, minShelterDist) / 8));
+          targetAmbient += (SURVIVAL_DECAY_RATES.temp_fire_bonus * proximityMult);
+          stats.health = Math.min(100, stats.health + 0.4 * proximityMult);
+          stats.energy = Math.min(100, stats.energy + 0.6 * proximityMult);
         }
-        stats.temperature = Math.max(0, Math.min(100, stats.temperature + tempChange));
+
+        // Apply temperature lerp
+        stats.temperature += (targetAmbient - stats.temperature) * SURVIVAL_DECAY_RATES.temp_lerp_speed;
 
         let healthPenalty = 0;
         if (stats.hunger < 10) healthPenalty += 0.4;
         if (stats.thirst < 10) healthPenalty += 0.6;
         if (stats.dirtiness > 85) healthPenalty += 0.15;
-        if (stats.temperature < 15) healthPenalty += 0.8;
+        
+        // ❄️ COLD DAMAGE: If temperature is below 10°C, take damage
+        if (stats.temperature < 10) {
+          const coldSeverity = (10 - stats.temperature) * 0.1;
+          healthPenalty += coldSeverity;
+        }
         
         stats.health = Math.max(0, stats.health - healthPenalty);
         if (stats.health <= 0) setIsGameOver(true);
@@ -220,6 +245,24 @@ const App: React.FC = () => {
   const handleCollect = (type: string) => {
     setGameState(prev => {
       const t = TRANSLATIONS[prev.settings.language];
+      
+      if (type === 'Sleep') {
+        playSFX(SFX_URLS.ui_click);
+        addNotification(t.sleep + " (+5h)");
+        let nextTime = prev.time + 500;
+        let nextDay = prev.day;
+        if (nextTime >= 2400) {
+          nextTime -= 2400;
+          nextDay += 1;
+        }
+        return { 
+          ...prev, 
+          time: nextTime, 
+          day: nextDay,
+          stats: { ...prev.stats, health: 100, energy: 100, temperature: 25 } // Restore to comfortable temp
+        };
+      }
+
       if (type === 'Water') {
         const waterskinCount = prev.inventory.find(i => i.name === 'Waterskin')?.count || 0;
         const currentWaterCount = prev.inventory.find(i => i.name === 'Water')?.count || 0;
@@ -249,10 +292,29 @@ const App: React.FC = () => {
 
       playSFX(type === 'Wood' ? SFX_URLS.collect_wood : type === 'Stone' ? SFX_URLS.collect_stone : SFX_URLS.ui_click);
       addNotification((t[type.toLowerCase() as keyof typeof t] || type) + " " + t.collected);
-      const inv = [...prev.inventory];
-      const existingIdx = inv.findIndex(i => i.name === type);
-      if (existingIdx > -1) inv[existingIdx].count += 1;
-      else inv.push({ id: Math.random().toString(), name: type, type: (type === 'Meat' || type === 'Apple' || type === 'Pear' || type === 'Berries') ? 'food' : 'resource', count: 1 });
+      
+      let inv = [...prev.inventory];
+      const addItem = (currentInv: any[], name: string) => {
+        const idx = currentInv.findIndex(i => i.name === name);
+        if (idx > -1) {
+          currentInv[idx] = { ...currentInv[idx], count: currentInv[idx].count + 1 };
+        } else {
+          currentInv.push({ 
+            id: Math.random().toString(), 
+            name, 
+            type: ['Meat', 'Apple', 'Pear', 'Berries'].includes(name) ? 'food' : 'resource', 
+            count: 1 
+          });
+        }
+      };
+
+      addItem(inv, type);
+
+      if (type === 'Stone' && Math.random() < 0.35) {
+        addItem(inv, 'Flint Stone');
+        addNotification(prev.settings.language === 'tr' ? 'Çakmak Taşı Bulundu!' : 'Found Flint Stone!');
+      }
+
       return { ...prev, inventory: inv };
     });
   };
@@ -279,6 +341,7 @@ const App: React.FC = () => {
       let fuelCost = 0;
 
       if (type === 'campfire' && getCount('Wood') >= 3 && getCount('Flint Stone') >= 1) { success = true; cost = { 'Wood': 3, 'Flint Stone': 1 }; }
+      else if (type === 'shelter' && getCount('Wood') >= 30 && getCount('Stone') >= 20) { success = true; cost = { 'Wood': 30, 'Stone': 20 }; }
       else if (type === 'bow' && getCount('Wood') >= 5) { success = true; cost = { 'Wood': 5 }; resultName = "Bow"; }
       else if (type === 'arrow' && getCount('Wood') >= 1 && getCount('Stone') >= 1) { success = true; cost = { 'Wood': 1, 'Stone': 1 }; resultName = "Arrow"; }
       else if (type === 'waterskin' && getCount('Wood') >= 2) { success = true; cost = { 'Wood': 2 }; resultName = "Waterskin"; }
@@ -308,6 +371,12 @@ const App: React.FC = () => {
           const spawnX = playerInfoRef.current.x + playerInfoRef.current.dirX * spawnDist;
           const spawnZ = playerInfoRef.current.z + playerInfoRef.current.dirZ * spawnDist;
           return { ...prev, inventory: newInv, campfires: [...prev.campfires, { id: Date.now().toString(), x: spawnX, z: spawnZ, life: 800 }] };
+        }
+        else if (type === 'shelter') {
+          const spawnDist = 4.5;
+          const spawnX = playerInfoRef.current.x + playerInfoRef.current.dirX * spawnDist;
+          const spawnZ = playerInfoRef.current.z + playerInfoRef.current.dirZ * spawnDist;
+          return { ...prev, inventory: newInv, shelters: [...prev.shelters, { id: Date.now().toString(), x: spawnX, z: spawnZ, rotation: playerRotation + Math.PI }] };
         }
         else {
           const existingIdx = newInv.findIndex(i => i.name === resultName);
@@ -348,6 +417,7 @@ const App: React.FC = () => {
             ref={sceneRef}
             time={gameState.time}
             campfires={gameState.campfires}
+            shelters={gameState.shelters}
             isLocked={isLocked}
             isMobile={isMobile}
             mobileInput={mobileInput}
@@ -374,7 +444,7 @@ const App: React.FC = () => {
             playerRotation={playerRotation}
             notifications={notifications}
             onToggleLanguage={() => setLanguage(gameState.settings.language === 'tr' ? 'en' : 'tr')}
-            isNearFire={gameState.campfires.some(cf => Math.sqrt(Math.pow(playerInfoRef.current.x - cf.x, 2) + Math.pow(playerInfoRef.current.z - cf.z, 2)) < 8)}
+            isNearFire={gameState.campfires.some(cf => Math.sqrt(Math.pow(playerInfoRef.current.x - cf.x, 2) + Math.pow(playerInfoRef.current.z - cf.z, 2)) < 8) || gameState.shelters.some(sh => Math.sqrt(Math.pow(playerInfoRef.current.x - sh.x, 2) + Math.pow(playerInfoRef.current.z - sh.z, 2)) < 6)}
           />
           {view === 'menu' && (
             <div className="absolute inset-0 z-[100] bg-slate-950/40 backdrop-blur-xl flex flex-col items-center justify-center p-8 overflow-hidden">
