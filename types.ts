@@ -8,6 +8,7 @@ export interface PlayerStats {
   thirst: number;
   energy: number;
   temperature: number;
+  dirtiness: number; // Yeni: 0-100 arası kirlilik seviyesi
 }
 
 export interface InventoryItem {
@@ -15,7 +16,7 @@ export interface InventoryItem {
   name: string;
   type: 'resource' | 'food' | 'tool';
   count: number;
-  life?: number; // Ömürlü eşyalar için (Meşale vb.)
+  life?: number;
 }
 
 export interface GameSettings {
@@ -43,7 +44,7 @@ export interface GameState {
   playerRotation: number;
   activeTorch: boolean;
   activeBow: boolean;
-  torchLife: number; // 0-100 (1 saat)
+  torchLife: number;
 }
 
 export interface InteractionTarget {

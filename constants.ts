@@ -5,6 +5,7 @@ export const INITIAL_STATS = {
   thirst: 100,
   energy: 100,
   temperature: 36.6,
+  dirtiness: 0,
 };
 
 export const SURVIVAL_DECAY_RATES = {
@@ -18,6 +19,7 @@ export const SURVIVAL_DECAY_RATES = {
   temp_night_drop: 0.05,
   temp_day_drop: 0.01,
   temp_fire_gain: 0.15,
+  dirtiness_gain: 0.08, 
 };
 
 export const TIME_TICK_RATE = 2400 / (24 * 60);
@@ -28,6 +30,7 @@ export const COLORS = {
   thirst: '#3b82f6',
   energy: '#10b981',
   temperature: '#f43f5e',
+  dirtiness: '#92400e',
 };
 
 export const TEXTURES = {
@@ -48,13 +51,14 @@ export const TRANSLATIONS = {
     thirst: "THIRST",
     energy: "ENERGY",
     temp: "TEMP",
+    dirt: "DIRT",
     emptyInventory: "Empty...",
     tree: "CHOP TREE",
     appleTree: "GATHER APPLES",
     pearTree: "GATHER PEARS",
     bush: "PICK BERRIES",
     rock: "COLLECT STONE",
-    water: "DRINK WATER",
+    water: "DRINK / FILL WATER",
     campfire: "CAMPFIRE",
     bow: "BOW",
     arrow: "ARROW",
@@ -73,7 +77,10 @@ export const TRANSLATIONS = {
     sfx: "SOUND EFFECTS",
     language: "LANGUAGE",
     on: "ON",
-    off: "OFF"
+    off: "OFF",
+    cook: "COOK",
+    fuel: "FUEL",
+    requiresFire: "REQUIRES FIRE"
   },
   tr: {
     newGame: "YENİ OYUN",
@@ -86,13 +93,14 @@ export const TRANSLATIONS = {
     thirst: "SUSUZLUK",
     energy: "ENERJİ",
     temp: "ISI",
+    dirt: "KİR",
     emptyInventory: "Boş...",
     tree: "ODUN KES",
     appleTree: "ELMA TOPLA",
     pearTree: "ARMUT TOPLA",
     bush: "BÖĞÜRTLEN",
     rock: "TAŞ TOPLA",
-    water: "SU İÇ",
+    water: "SU İÇ / DOLDUR",
     campfire: "KAMP ATEŞİ",
     bow: "YAY",
     arrow: "OK",
@@ -111,7 +119,10 @@ export const TRANSLATIONS = {
     sfx: "SES EFEKTLERİ",
     language: "DİL",
     on: "AÇIK",
-    off: "KAPALI"
+    off: "KAPALI",
+    cook: "PİŞİR",
+    fuel: "YAKIT",
+    requiresFire: "ATEŞ GEREKLİ"
   }
 };
 
