@@ -15,6 +15,7 @@ export interface InventoryItem {
   name: string;
   type: 'resource' | 'food' | 'tool';
   count: number;
+  life?: number; // Ömürlü eşyalar için (Meşale vb.)
 }
 
 export interface GameSettings {
@@ -27,22 +28,26 @@ export interface CampfireData {
   id: string;
   x: number;
   z: number;
+  life: number;
 }
 
 export interface GameState {
   stats: PlayerStats;
   inventory: InventoryItem[];
   day: number;
-  time: number; // 0 to 2400
+  time: number;
   settings: GameSettings;
   weather: WeatherType;
   campfires: CampfireData[];
   playerPosition: { x: number, y: number, z: number };
   playerRotation: number;
+  activeTorch: boolean;
+  activeBow: boolean;
+  torchLife: number; // 0-100 (1 saat)
 }
 
 export interface InteractionTarget {
-  type: 'tree' | 'appleTree' | 'bush' | 'water' | 'rock' | 'campfire' | 'critter' | 'arrow' | 'partridge' | 'none';
+  type: 'tree' | 'appleTree' | 'bush' | 'water' | 'rock' | 'campfire' | 'critter' | 'arrow' | 'partridge' | 'none' | 'boar' | 'fox' | 'wolf' | 'rabbit' | 'deer' | 'squirrel' | 'meat';
   id?: string;
 }
 

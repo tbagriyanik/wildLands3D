@@ -2,420 +2,390 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import GameScene, { GameSceneHandle } from './components/GameScene';
 import UIOverlay from './components/UIOverlay';
-import { GameState, InteractionTarget, MobileInput, InventoryItem } from './types';
-import { INITIAL_STATS, SURVIVAL_DECAY_RATES, TRANSLATIONS, SFX_URLS, MUSIC_URL, ITEM_LIMITS } from './constants';
+import { GameState, InteractionTarget, MobileInput } from './types';
+import { INITIAL_STATS, SURVIVAL_DECAY_RATES, TRANSLATIONS, SFX_URLS, MUSIC_URL, TIME_TICK_RATE } from './constants';
 
-const SAVE_KEY = 'wildlands_survival_v30';
+const SAVE_KEY = 'wildlands_survival_v5.3'; 
+const VERSION = 'v5.3.4 "Stable Explorer"';
+const SPAWN_X = 160; 
+const CENTER_Z = 120;
 
-const ITEM_PRIORITY: Record<string, number> = {
-  'Bow': 100,
-  'Torch': 99,
-  'Waterskin (Full)': 95,
-  'Waterskin (Empty)': 94,
-  'Cooked Meat': 90,
-  'Roasted Apple': 89,
-  'Cooked Berries': 88,
-  'Raw Meat': 80,
-  'Apple': 79,
-  'Berries': 78,
-  'Arrow': 50,
-  'Flint Stone': 10,
-  'Wood': 5,
-  'Stone': 4
-};
-
-const getItemType = (name: string): 'resource' | 'food' | 'tool' => {
-  if (['Bow', 'Torch', 'Waterskin (Empty)', 'Waterskin (Full)'].includes(name)) return 'tool';
-  if (['Apple', 'Berries', 'Raw Meat', 'Cooked Meat', 'Roasted Apple'].includes(name)) return 'food';
-  return 'resource';
-};
-
-const sortInventory = (items: InventoryItem[]): InventoryItem[] => {
-  return [...items].sort((a, b) => (ITEM_PRIORITY[b.name] || 0) - (ITEM_PRIORITY[a.name] || 0));
-};
+interface Notification {
+  id: number;
+  text: string;
+}
 
 const App: React.FC = () => {
-  const [view, setView] = useState<'menu' | 'game' | 'settings'>('menu');
-  const [isMobile] = useState(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+  const [view, setView] = useState<'menu' | 'game' | 'loading'>('loading');
+  const [menuTab, setMenuTab] = useState<'main' | 'settings'>('main');
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [isMobile] = useState(/Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent));
   const [isCraftingOpen, setIsCraftingOpen] = useState(false);
-  const [gameKey, setGameKey] = useState(0); 
-  const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
-  const [isWarmingUp, setIsWarmingUp] = useState(false);
-  const [notifications, setNotifications] = useState<{id: number, text: string, icon: string}[]>([]);
+  const [playerRotation, setPlayerRotation] = useState(0);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   
-  const musicRef = useRef<HTMLAudioElement | null>(null);
-  const playerInfoRef = useRef({ x: 120, y: 1.8, z: 120, dirX: 0, dirZ: -1 });
+  // Define interaction state to track what the player is looking at
+  const [interaction, setInteraction] = useState<InteractionTarget>({ type: 'none' });
+  // Define mobileInput state for touch controls
+  const [mobileInput] = useState<MobileInput>({
+    moveX: 0, moveY: 0, lookX: 0, lookY: 0, jump: false, sprint: false, interact: false, attack: false
+  });
 
-  const addNotification = (text: string, icon: string) => {
-    const id = Date.now();
-    setNotifications(prev => [...prev, { id, text, icon }]);
-    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 3000);
-  };
+  const playerInfoRef = useRef({ x: SPAWN_X, y: 1.8, z: CENTER_Z, dirX: 0, dirZ: -1, rot: 0 });
+  const sceneRef = useRef<GameSceneHandle>(null);
+  const musicRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const urls = [MUSIC_URL, ...Object.values(SFX_URLS)];
+    let loadedCount = 0;
+    urls.forEach(url => {
+      const audio = new Audio();
+      audio.oncanplaythrough = () => {
+        loadedCount++;
+        setLoadingProgress(Math.floor((loadedCount / urls.length) * 100));
+        if (loadedCount === urls.length) setView('menu');
+      };
+      audio.onerror = () => {
+        loadedCount++;
+        if (loadedCount === urls.length) setView('menu');
+      };
+      audio.src = url;
+      audio.load();
+    });
+  }, []);
 
   const getInitialState = (): GameState => ({
     stats: { ...INITIAL_STATS },
-    inventory: sortInventory([
-      { id: '1', name: 'Flint Stone', type: 'resource', count: 3 },
-      { id: '2', name: 'Wood', type: 'resource', count: 12 },
-      { id: '3', name: 'Stone', type: 'resource', count: 8 },
-      { id: '4', name: 'Apple', type: 'food', count: 5 },
-      { id: '5', name: 'Raw Meat', type: 'food', count: 2 },
-      { id: '6', name: 'Arrow', type: 'resource', count: 10 }
-    ]),
-    day: 1,
-    time: 1000,
-    settings: { language: 'tr', musicEnabled: true, sfxEnabled: true },
-    weather: 'sunny',
-    campfires: [],
-    playerPosition: { x: 120, y: 1.8, z: 120 },
-    playerRotation: 0
+    inventory: [
+      { id: '1', name: 'Wood', type: 'resource', count: 20 },
+      { id: '2', name: 'Flint Stone', type: 'resource', count: 10 },
+      { id: '3', name: 'Arrow', type: 'resource', count: 8 },
+      { id: '4', name: 'Bow', type: 'tool', count: 1 }
+    ],
+    day: 1, time: 800, settings: { language: 'tr', musicEnabled: true, sfxEnabled: true },
+    weather: 'sunny', campfires: [], playerPosition: { x: SPAWN_X, y: 1.8, z: CENTER_Z }, playerRotation: 0,
+    activeTorch: false, activeBow: false, torchLife: 100
   });
 
   const [gameState, setGameState] = useState<GameState>(() => {
-    const saved = localStorage.getItem(SAVE_KEY);
-    if (saved) {
-      try {
+    try {
+      const saved = localStorage.getItem(SAVE_KEY);
+      if (saved) {
         const parsed = JSON.parse(saved);
-        return { ...parsed, inventory: sortInventory(parsed.inventory || []) };
-      } catch (e) { console.error("Save load failed:", e); }
+        if (parsed && parsed.playerPosition) {
+          playerInfoRef.current = { ...parsed.playerPosition, dirX: 0, dirZ: -1, rot: parsed.playerRotation || 0 };
+          return parsed;
+        }
+      }
+    } catch (e) { 
+      localStorage.removeItem(SAVE_KEY);
     }
     return getInitialState();
   });
 
-  const hasSave = !!localStorage.getItem(SAVE_KEY);
-  const [interaction, setInteraction] = useState<InteractionTarget>({ type: 'none' });
-  const [isGameOver, setIsGameOver] = useState(false);
-  const [isLocked, setIsLocked] = useState(false);
-  const [playerRotation, setPlayerRotation] = useState(gameState.playerRotation || 0);
-  const [activeToolId, setActiveToolId] = useState<string | null>(null);
-  const [mobileInput, setMobileInput] = useState<MobileInput>({ moveX: 0, moveY: 0, lookX: 0, lookY: 0, jump: false, sprint: false, interact: false, attack: false });
-  
-  const sceneRef = useRef<GameSceneHandle>(null);
+  const addNotification = useCallback((text: string) => {
+    const id = Date.now();
+    setNotifications(prev => [...prev, { id, text }]);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 2500);
+  }, []);
+
+  useEffect(() => {
+    if (!musicRef.current) {
+      musicRef.current = new Audio(MUSIC_URL);
+      musicRef.current.loop = true;
+      musicRef.current.volume = 0.2;
+    }
+    if (gameState.settings.musicEnabled && (view === 'menu' || view === 'game')) {
+      musicRef.current.play().catch(() => {});
+    } else {
+      musicRef.current.pause();
+    }
+  }, [gameState.settings.musicEnabled, view]);
+
   const t = TRANSLATIONS[gameState.settings.language];
 
   const playSFX = useCallback((url: string, volume = 0.4) => {
     if (gameState.settings.sfxEnabled) {
-      const sfx = new Audio(url);
-      sfx.volume = volume;
+      const sfx = new Audio(url); sfx.volume = volume;
       sfx.play().catch(() => {});
     }
   }, [gameState.settings.sfxEnabled]);
 
-  const toggleLanguage = useCallback(() => {
-    setGameState(prev => ({
-      ...prev,
-      settings: {
-        ...prev.settings,
-        language: prev.settings.language === 'tr' ? 'en' : 'tr'
-      }
-    }));
-    playSFX(SFX_URLS.ui_click);
-  }, [playSFX]);
-
-  const handleUseItem = useCallback((itemId: string) => {
+  const handleUseItem = useCallback((itemIdOrName: string) => {
     setGameState(prev => {
-      if (itemId === 'campfire') {
-        let newInv = [...prev.inventory];
-        let rawMeatIndex = newInv.findIndex(i => i.name === 'Raw Meat');
-        let appleIndex = newInv.findIndex(i => i.name === 'Apple');
-        let cookedSomething = false;
-
-        if (rawMeatIndex !== -1) {
-          playSFX(SFX_URLS.campfire_cook);
-          if (newInv[rawMeatIndex].count > 1) newInv[rawMeatIndex] = { ...newInv[rawMeatIndex], count: newInv[rawMeatIndex].count - 1 };
-          else newInv.splice(rawMeatIndex, 1);
-          let cookedIndex = newInv.findIndex(i => i.name === 'Cooked Meat');
-          if (cookedIndex !== -1) newInv[cookedIndex].count++;
-          else newInv.push({ id: 'cooked_' + Date.now(), name: 'Cooked Meat', type: 'food', count: 1 });
-          addNotification('Cooked Meat', '🍖');
-          cookedSomething = true;
-        } else if (appleIndex !== -1) {
-          playSFX(SFX_URLS.campfire_cook);
-          if (newInv[appleIndex].count > 1) newInv[appleIndex] = { ...newInv[appleIndex], count: newInv[appleIndex].count - 1 };
-          else newInv.splice(appleIndex, 1);
-          let roastedIndex = newInv.findIndex(i => i.name === 'Roasted Apple');
-          if (roastedIndex !== -1) newInv[roastedIndex].count++;
-          else newInv.push({ id: 'roasted_' + Date.now(), name: 'Roasted Apple', type: 'food', count: 1 });
-          addNotification('Roasted Apple', '🍎');
-          cookedSomething = true;
-        }
-        return cookedSomething ? { ...prev, inventory: sortInventory(newInv) } : prev;
-      }
-
-      const itemIndex = prev.inventory.findIndex(i => i.id === itemId);
-      if (itemIndex === -1) return prev;
-      const item = prev.inventory[itemIndex];
-      
-      if (item.name === 'Bow' || item.name === 'Torch') {
-        setActiveToolId(current => (current !== itemId ? itemId : null));
-        if (activeToolId !== itemId && item.name === 'Torch') playSFX(SFX_URLS.torch_light);
-        return prev;
-      }
-
-      if (item.name === 'Waterskin (Full)') {
-        playSFX(SFX_URLS.drink_swallow);
-        const newInv = [...prev.inventory];
-        newInv[itemIndex] = { ...newInv[itemIndex], name: 'Waterskin (Empty)' };
-        addNotification('thirstQuenched', '💧');
-        return { ...prev, stats: { ...prev.stats, thirst: Math.min(100, prev.stats.thirst + 40) }, inventory: sortInventory(newInv) };
-      }
-
-      let newStats = { ...prev.stats };
+      const index = prev.inventory.findIndex(i => i.id === itemIdOrName || i.name === itemIdOrName);
+      if (index === -1) return prev;
+      const item = prev.inventory[index];
+      const stats = { ...prev.stats };
       let consumed = false;
-      if (item.name === 'Apple') { 
-        newStats.hunger = Math.min(100, newStats.hunger + 15); 
-        newStats.thirst = Math.min(100, newStats.thirst + 10); // Susuzluk desteği
-        consumed = true; 
-      }
-      else if (item.name === 'Roasted Apple') { 
-        newStats.hunger = Math.min(100, newStats.hunger + 25); 
-        newStats.thirst = Math.min(100, newStats.thirst + 3); // Pişince azalan ama hala olan su desteği
-        consumed = true; 
-      }
-      else if (item.name === 'Cooked Meat') { 
-        newStats.hunger = Math.min(100, newStats.hunger + 55); 
-        consumed = true; 
-      }
-      else if (item.name === 'Raw Meat') { 
-        newStats.hunger = Math.min(100, newStats.hunger + 12); 
-        newStats.health -= 8; 
-        consumed = true; 
-      }
-      else if (item.name === 'Berries') { 
-        newStats.hunger = Math.min(100, newStats.hunger + 10); 
-        newStats.thirst = Math.min(100, newStats.thirst + 15); // Sulu meyve olduğu için daha çok susuzluk giderir
-        consumed = true; 
-      }
+
+      if (item.name === 'Meat') { stats.hunger = Math.min(100, stats.hunger + 15); stats.health = Math.max(0, stats.health - 5); playSFX(SFX_URLS.eat_crunchy); consumed = true; }
+      else if (item.name === 'Cooked Meat') { stats.hunger = Math.min(100, stats.hunger + 45); stats.health = Math.min(100, stats.health + 15); stats.energy = Math.min(100, stats.energy + 10); playSFX(SFX_URLS.eat_crunchy); consumed = true; }
+      else if (['Apple', 'Pear', 'Berries'].includes(item.name)) { stats.hunger = Math.min(100, stats.hunger + 10); stats.thirst = Math.min(100, stats.thirst + 5); playSFX(SFX_URLS.eat_crunchy); consumed = true; }
+      else if (item.name === 'Cooked Fruit') { stats.hunger = Math.min(100, stats.hunger + 25); stats.health = Math.min(100, stats.health + 5); playSFX(SFX_URLS.eat_crunchy); consumed = true; }
+      else if (item.name === 'Water' || item.name === 'Waterskin') { if (stats.thirst >= 100) return prev; stats.thirst = Math.min(100, stats.thirst + 30); playSFX(SFX_URLS.drink_swallow); if (item.name === 'Water') consumed = true; }
 
       if (consumed) {
-        playSFX(SFX_URLS.eat_crunchy);
         const newInv = [...prev.inventory];
-        if (newInv[itemIndex].count > 1) newInv[itemIndex] = { ...newInv[itemIndex], count: newInv[itemIndex].count - 1 };
-        else newInv.splice(itemIndex, 1);
-        return { ...prev, stats: newStats, inventory: sortInventory(newInv) };
+        if (newInv[index].count > 1) newInv[index] = { ...newInv[index], count: newInv[index].count - 1 };
+        else newInv.splice(index, 1);
+        return { ...prev, stats, inventory: newInv };
       }
       return prev;
     });
-  }, [playSFX, activeToolId]);
-
-  const onDrinkFromLake = useCallback(() => {
-    setGameState(prev => {
-      let newInv = [...prev.inventory];
-      let waterskinIdx = newInv.findIndex(i => i.name === 'Waterskin (Empty)');
-      if (waterskinIdx !== -1) {
-        newInv[waterskinIdx] = { ...newInv[waterskinIdx], name: 'Waterskin (Full)' };
-        addNotification('WaterskinFull', '🍶');
-      } else {
-        addNotification('thirstQuenched', '💧');
-      }
-      playSFX(SFX_URLS.drink_swallow);
-      return { ...prev, stats: { ...prev.stats, thirst: Math.min(100, prev.stats.thirst + 20) }, inventory: sortInventory(newInv) };
-    });
   }, [playSFX]);
 
-  const onCollectItem = useCallback((name: string, icon: string) => {
-    setGameState(prev => {
-      const inv = [...prev.inventory];
-      const type = getItemType(name);
-      const limit = ITEM_LIMITS[type as keyof typeof ITEM_LIMITS] || 30;
-      
-      const existing = inv.find(i => i.name === name && (type === 'tool' || i.count < limit));
-      if (existing) {
-        existing.count++;
-      } else {
-        if (inv.length >= 15) { addNotification('inventoryFull', '⚠️'); return prev; }
-        inv.push({ id: Math.random().toString(), name, type, count: 1 });
+  const handleCraftMenuToggle = useCallback((forceState?: boolean) => {
+    const nextState = forceState !== undefined ? forceState : !isCraftingOpen;
+    setIsCraftingOpen(nextState);
+    if (!nextState) {
+      setTimeout(() => sceneRef.current?.requestLock(), 100);
+    } else {
+      sceneRef.current?.requestUnlock();
+    }
+  }, [isCraftingOpen]);
+
+  useEffect(() => {
+    const handleKeys = (e: KeyboardEvent) => {
+      if (view !== 'game') return;
+      if (e.code === 'Tab' || e.code === 'KeyC') {
+        e.preventDefault();
+        handleCraftMenuToggle();
+        return;
       }
-      addNotification(name, icon);
-      return { ...prev, inventory: sortInventory(inv) };
-    });
-  }, []);
+      if (isCraftingOpen) return;
+      
+      const keyMap: Record<string, () => void> = {
+        'Digit1': () => {
+          const hasBow = gameState.inventory.some(i => i.name === 'Bow');
+          if (hasBow) setGameState(p => ({ ...p, activeBow: !p.activeBow, activeTorch: false }));
+        },
+        'Digit2': () => {
+          const hasTorch = gameState.inventory.some(i => i.name === 'Torch');
+          if (hasTorch) setGameState(p => ({ ...p, activeTorch: !p.activeTorch, activeBow: false }));
+        },
+        'Digit3': () => { handleUseItem('Waterskin'); handleUseItem('Water'); },
+        'Digit4': () => { handleUseItem('Meat'); },
+        'Digit5': () => { handleUseItem('Apple'); handleUseItem('Pear'); handleUseItem('Berries'); },
+        'Digit6': () => { handleUseItem('Cooked Meat'); },
+        'Digit7': () => { handleUseItem('Cooked Fruit'); },
+        'Escape': () => {
+          if (isCraftingOpen) handleCraftMenuToggle(false);
+          else { setView('menu'); setMenuTab('main'); sceneRef.current?.requestUnlock(); }
+        }
+      };
+      if (keyMap[e.code]) keyMap[e.code]();
+    };
+    window.addEventListener('keydown', handleKeys);
+    return () => window.removeEventListener('keydown', handleKeys);
+  }, [view, isCraftingOpen, gameState.inventory, handleUseItem, handleCraftMenuToggle, gameState.activeBow, gameState.activeTorch]);
 
   useEffect(() => {
     if (view !== 'game') return;
-    const interval = setInterval(() => {
-      setGameState(prev => ({
-        ...prev,
-        playerPosition: { x: playerInfoRef.current.x, y: playerInfoRef.current.y, z: playerInfoRef.current.z },
-        playerRotation: playerRotation
-      }));
-    }, 2000); 
-    return () => clearInterval(interval);
-  }, [view, playerRotation]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Escape') {
-        if (view === 'game') {
-          if (isCraftingOpen) setIsCraftingOpen(false);
-          else { setView('menu'); if (document.pointerLockElement) document.exitPointerLock(); }
-        } else setView('menu');
-      }
-      if (e.code === 'KeyC' && view === 'game') setIsCraftingOpen(prev => !prev);
-      if (view === 'game' && !isCraftingOpen) {
-        const keyNum = parseInt(e.key);
-        if (keyNum >= 1 && keyNum <= 9) {
-          const item = gameState.inventory[keyNum - 1];
-          if (item) handleUseItem(item.id);
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [view, isCraftingOpen, gameState.inventory, handleUseItem]);
-
-  useEffect(() => {
-    if (!musicRef.current) { musicRef.current = new Audio(MUSIC_URL); musicRef.current.loop = true; musicRef.current.volume = 0.2; }
-    if (gameState.settings.musicEnabled && view === 'game') musicRef.current.play().catch(() => {});
-    else musicRef.current.pause();
-  }, [gameState.settings.musicEnabled, view]);
-
-  const handleCraft = useCallback((type: string) => {
-    setGameState(prev => {
-      const wood = prev.inventory.find(i => i.name === 'Wood');
-      const flint = prev.inventory.find(i => i.name === 'Flint Stone');
-      let newInv = [...prev.inventory];
-      if (type === 'campfire' && wood && wood.count >= 3 && flint && flint.count >= 1) {
-        playSFX(SFX_URLS.campfire_craft);
-        newInv = newInv.map(i => i.name === 'Wood' ? { ...i, count: i.count - 3 } : i.name === 'Flint Stone' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
-        const cf = { id: 'cf_' + Date.now(), x: playerInfoRef.current.x + playerInfoRef.current.dirX * 3, z: playerInfoRef.current.z + playerInfoRef.current.dirZ * 3 };
-        return { ...prev, inventory: sortInventory(newInv), campfires: [...prev.campfires, cf] };
-      }
-      if (type === 'waterskin' && wood && wood.count >= 2) {
-        playSFX(SFX_URLS.collect_item_generic);
-        newInv = newInv.map(i => i.name === 'Wood' ? { ...i, count: i.count - 2 } : i).filter(i => i.count > 0);
-        newInv.push({ id: 'ws_' + Date.now(), name: 'Waterskin (Empty)', type: 'tool', count: 1 });
-        addNotification('Waterskin', '🍶');
-        return { ...prev, inventory: sortInventory(newInv) };
-      }
-      if (type === 'arrows' && wood && wood.count >= 1) {
-        newInv = newInv.map(i => i.name === 'Wood' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
-        const arrows = newInv.find(i => i.name === 'Arrow');
-        if (arrows) arrows.count += 5; else newInv.push({ id: 'arrow_' + Date.now(), name: 'Arrow', type: 'resource', count: 5 });
-        addNotification('Arrow', '🏹');
-        return { ...prev, inventory: sortInventory(newInv) };
-      }
-      if (type === 'bow' && wood && wood.count >= 3) {
-        newInv = newInv.map(i => i.name === 'Wood' ? { ...i, count: i.count - 3 } : i).filter(i => i.count > 0);
-        newInv.push({ id: 'bow_' + Date.now(), name: 'Bow', type: 'tool', count: 1 });
-        addNotification('Bow', '🏹');
-        return { ...prev, inventory: sortInventory(newInv) };
-      }
-      if (type === 'torch' && wood && wood.count >= 1 && flint && flint.count >= 1) {
-        newInv = newInv.map(i => i.name === 'Wood' ? { ...i, count: i.count - 1 } : i.name === 'Flint Stone' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0);
-        newInv.push({ id: 'torch_' + Date.now(), name: 'Torch', type: 'tool', count: 1 });
-        addNotification('Torch', '🔦');
-        return { ...prev, inventory: sortInventory(newInv) };
-      }
-      return prev;
-    });
-  }, [playSFX]);
-
-  useEffect(() => {
-    if (view !== 'game' || (!isLocked && !isMobile)) return;
     const timer = setInterval(() => {
       setGameState(prev => {
-        if (prev.stats.health <= 0) { setIsGameOver(true); return prev; }
         const stats = { ...prev.stats };
         stats.hunger = Math.max(0, stats.hunger - SURVIVAL_DECAY_RATES.hunger);
         stats.thirst = Math.max(0, stats.thirst - SURVIVAL_DECAY_RATES.thirst);
+        stats.energy = Math.max(0, stats.energy - SURVIVAL_DECAY_RATES.energy_base);
+
         const isNight = prev.time > 1900 || prev.time < 500;
-        let tempDelta = isNight ? -0.25 : -0.08;
-        let nearestFireDist = Infinity;
-        prev.campfires.forEach(cf => {
-           const dist = Math.sqrt(Math.pow(playerInfoRef.current.x - cf.x, 2) + Math.pow(playerInfoRef.current.z - cf.z, 2));
-           if (dist < nearestFireDist) nearestFireDist = dist;
-        });
-        if (nearestFireDist < 8) { tempDelta += 0.8 * Math.max(0, Math.min(1, (8 - nearestFireDist) / 6)); setIsWarmingUp(tempDelta > 0); }
-        else setIsWarmingUp(false);
-        stats.temperature = Math.max(0, Math.min(100, stats.temperature + tempDelta));
-        if (stats.hunger < 5 || stats.thirst < 5 || stats.temperature < 15) stats.health = Math.max(0, stats.health - 0.4);
-        let newTime = prev.time + 1;
+        let tempDelta = isNight ? -SURVIVAL_DECAY_RATES.temp_night_drop : -SURVIVAL_DECAY_RATES.temp_day_drop;
+        const updatedFires = prev.campfires.map(f => ({ ...f, life: f.life - TIME_TICK_RATE })).filter(f => f.life > 0);
+        let nearFire = updatedFires.some(cf => Math.sqrt(Math.pow(playerInfoRef.current.x - cf.x, 2) + Math.pow(playerInfoRef.current.z - cf.z, 2)) < 8);
+
+        if (nearFire) {
+          tempDelta = SURVIVAL_DECAY_RATES.temp_fire_gain;
+          stats.health = Math.min(100, stats.health + SURVIVAL_DECAY_RATES.health_recovery_fire);
+          stats.energy = Math.min(100, stats.energy + SURVIVAL_DECAY_RATES.energy_recovery_fire);
+        }
+
+        let newTorchLife = prev.torchLife;
+        let activeTorch = prev.activeTorch;
+        let newInv = [...prev.inventory];
+        if (activeTorch) {
+          newTorchLife -= TIME_TICK_RATE; tempDelta += 0.02;
+          if (newTorchLife <= 0) {
+            activeTorch = false; newTorchLife = 100;
+            const torchIdx = newInv.findIndex(i => i.name === 'Torch');
+            if (torchIdx > -1) { if (newInv[torchIdx].count > 1) newInv[torchIdx].count -= 1; else newInv.splice(torchIdx, 1); }
+          }
+        }
+
+        stats.temperature = Math.min(37.5, Math.max(20, stats.temperature + tempDelta));
+        if (stats.hunger < 5 || stats.thirst < 5 || stats.temperature < 25) stats.health = Math.max(0, stats.health - 0.5);
+        if (stats.health <= 0) setIsGameOver(true);
+
+        let newTime = prev.time + TIME_TICK_RATE;
         if (newTime >= 2400) newTime = 0;
-        return { ...prev, stats, time: newTime };
+        return { ...prev, stats, time: newTime, day: newTime < prev.time ? prev.day + 1 : prev.day, campfires: updatedFires, inventory: newInv, activeTorch, torchLife: newTorchLife, playerPosition: { ...playerInfoRef.current } };
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [view, isLocked, isMobile]);
+  }, [view]);
 
-  const startNewGame = () => { localStorage.removeItem(SAVE_KEY); setGameState(getInitialState()); setGameKey(prev => prev + 1); setView('game'); setShowNewGameConfirm(false); setIsCraftingOpen(false); };
+  const handleCollect = (type: string) => {
+    setGameState(prev => {
+      if (type === 'Water') {
+        if (prev.stats.thirst >= 100) return prev;
+        const hasWaterskin = prev.inventory.some(i => i.name === 'Waterskin');
+        if (!hasWaterskin) { 
+          playSFX(SFX_URLS.drink_swallow); 
+          addNotification(t.water + " " + t.collected);
+          return { ...prev, stats: { ...prev.stats, thirst: Math.min(100, prev.stats.thirst + 40) } }; 
+        }
+      }
+      playSFX(type === 'Wood' ? SFX_URLS.collect_wood : type === 'Stone' ? SFX_URLS.collect_stone : SFX_URLS.ui_click);
+      addNotification((t[type.toLowerCase() as keyof typeof t] || type) + " " + t.collected);
+      const inv = [...prev.inventory];
+      const existingIdx = inv.findIndex(i => i.name === type);
+      if (existingIdx > -1) inv[existingIdx] = { ...inv[existingIdx], count: inv[existingIdx].count + 1 };
+      else inv.push({ id: Math.random().toString(), name: type, type: type === 'Meat' ? 'food' : 'resource', count: 1 });
+      return { ...prev, inventory: inv };
+    });
+  };
 
-  useEffect(() => {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
-  }, [gameState]);
+  const handleShoot = () => {
+    setGameState(prev => {
+      const arrowIdx = prev.inventory.findIndex(i => i.name === 'Arrow');
+      if (arrowIdx === -1) return prev;
+      playSFX(SFX_URLS.arrow_shoot);
+      const newInv = [...prev.inventory];
+      if (newInv[arrowIdx].count > 1) newInv[arrowIdx] = { ...newInv[arrowIdx], count: newInv[arrowIdx].count - 1 };
+      else newInv.splice(arrowIdx, 1);
+      return { ...prev, inventory: newInv };
+    });
+  };
+
+  const handleCraft = (type: string) => {
+    setGameState(prev => {
+      const getCount = (name: string) => prev.inventory.find(i => i.name === name)?.count || 0;
+      const isNearFire = prev.campfires.some(cf => Math.sqrt(Math.pow(playerInfoRef.current.x - cf.x, 2) + Math.pow(playerInfoRef.current.z - cf.z, 2)) < 6);
+      let success = false; let cost: Record<string, number> = {}; let resultName = "";
+      if (type === 'campfire' && getCount('Wood') >= 3 && getCount('Flint Stone') >= 1) { success = true; cost = { 'Wood': 3, 'Flint Stone': 1 }; }
+      else if (type === 'bow' && getCount('Wood') >= 5) { success = true; cost = { 'Wood': 5 }; resultName = "Bow"; }
+      else if (type === 'arrow' && getCount('Wood') >= 1 && getCount('Stone') >= 1) { success = true; cost = { 'Wood': 1, 'Stone': 1 }; resultName = "Arrow"; }
+      else if (type === 'waterskin' && getCount('Wood') >= 2) { success = true; cost = { 'Wood': 2 }; resultName = "Waterskin"; }
+      else if (type === 'torch' && getCount('Wood') >= 1 && getCount('Flint Stone') >= 1) { success = true; cost = { 'Wood': 1, 'Flint Stone': 1 }; resultName = "Torch"; }
+      else if (type === 'cook_meat' && getCount('Meat') >= 1 && isNearFire) { success = true; cost = { 'Meat': 1 }; resultName = "Cooked Meat"; }
+      else if (type === 'cook_fruit' && isNearFire) { 
+        const fName = getCount('Apple') > 0 ? 'Apple' : getCount('Pear') > 0 ? 'Pear' : getCount('Berries') > 0 ? 'Berries' : null;
+        if (fName) { success = true; cost = { [fName]: 1 }; resultName = "Cooked Fruit"; }
+      }
+      if (success) {
+        playSFX(type.startsWith('cook') ? SFX_URLS.eat_crunchy : SFX_URLS.campfire_craft);
+        let newInv = prev.inventory.map(item => cost[item.name] ? { ...item, count: item.count - cost[item.name] } : item).filter(item => item.count > 0);
+        if (type === 'campfire') {
+          const spawnDist = 2.5;
+          const spawnX = playerInfoRef.current.x + playerInfoRef.current.dirX * spawnDist;
+          const spawnZ = playerInfoRef.current.z + playerInfoRef.current.dirZ * spawnDist;
+          addNotification(t.campfire + " " + t.collected);
+          return { ...prev, inventory: newInv, campfires: [...prev.campfires, { id: Date.now().toString(), x: spawnX, z: spawnZ, life: 800 }] };
+        }
+        else {
+          addNotification(resultName + " " + t.collected);
+          const existingIdx = newInv.findIndex(i => i.name === resultName);
+          if (existingIdx > -1) newInv[existingIdx] = { ...newInv[existingIdx], count: newInv[existingIdx].count + 1 };
+          else newInv.push({ id: Math.random().toString(), name: resultName, type: 'tool', count: 1 });
+          return { ...prev, inventory: newInv };
+        }
+      }
+      return prev;
+    });
+  };
+
+  const [isGameOver, setIsGameOver] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  const startNewGame = useCallback(() => { localStorage.removeItem(SAVE_KEY); window.location.reload(); }, []);
 
   return (
     <div className="w-screen h-screen bg-slate-950 text-white font-sans overflow-hidden">
-      <GameScene 
-        key={gameKey} ref={sceneRef} initialPosition={gameState.playerPosition} initialRotation={gameState.playerRotation}
-        onInteract={setInteraction} 
-        onCollect={(t) => {
-          const icons: Record<string, string> = { Apple: '🍎', Wood: '🪵', Stone: '🪨', Berries: '🍒', 'Raw Meat': '🥩', Arrow: '🏹' };
-          onCollectItem(t, icons[t] || '📦');
-        }}
-        onDrink={onDrinkFromLake}
-        onPositionUpdate={(info) => { playerInfoRef.current = info; setPlayerRotation(Math.atan2(info.dirX, info.dirZ)); }}
-        onLockChange={setIsLocked} onCook={() => handleUseItem('campfire')}
-        onShoot={() => setGameState(p => ({ ...p, inventory: p.inventory.map(i => i.name === 'Arrow' ? { ...i, count: i.count - 1 } : i).filter(i => i.count > 0) }))}
-        isBowActive={gameState.inventory.find(i => i.id === activeToolId)?.name === 'Bow'}
-        isTorchActive={gameState.inventory.find(i => i.id === activeToolId)?.name === 'Torch'}
-        arrowCount={gameState.inventory.find(i => i.name === 'Arrow')?.count || 0}
-        time={gameState.time} weather={gameState.weather} isLocked={isLocked} isMobile={isMobile} mobileInput={mobileInput}
-        sfxEnabled={gameState.settings.sfxEnabled} campfires={gameState.campfires} isCraftingOpen={isCraftingOpen}
-      />
-      <UIOverlay 
-        gameState={gameState} interaction={interaction} onUseItem={handleUseItem} onCraft={handleCraft} isVisible={view === 'game'} 
-        isCraftingOpen={isCraftingOpen} setIsCraftingOpen={setIsCraftingOpen} playerRotation={playerRotation} 
-        activeToolId={activeToolId} onMobileInput={setMobileInput} isMobile={isMobile} onCook={() => handleUseItem('campfire')} cookingItem={null} 
-        isHungerCritical={gameState.stats.hunger < 20} isThirstCritical={gameState.stats.thirst < 20} isWarmingUp={isWarmingUp} showTodoList={true} 
-        onToggleLanguage={toggleLanguage}
-      />
-      
-      {/* Notifications - Sol Alt Bölge */}
-      <div className="fixed bottom-32 left-8 z-[200] flex flex-col-reverse gap-2 pointer-events-none">
-        {notifications.map(n => {
-          // Check if it's an item key to add "Collected" suffix
-          const isItem = !!TRANSLATIONS.en[n.text as keyof typeof TRANSLATIONS.en] || !!TRANSLATIONS.tr[n.text as keyof typeof TRANSLATIONS.tr];
-          const translatedText = t[n.text as keyof typeof t] || n.text;
-          
-          return (
-            <div key={n.id} className="bg-indigo-600/90 backdrop-blur-xl px-4 py-2 rounded-xl border border-white/20 shadow-2xl animate-in slide-in-from-left flex items-center gap-3">
-               <span className="text-xl">{n.icon}</span>
-               <span className="text-[10px] font-black uppercase tracking-widest">
-                 {translatedText} {isItem ? t.collected : ''}
-               </span>
-            </div>
-          );
-        })}
-      </div>
-
-      {view === 'menu' && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-2xl pointer-events-auto">
-          <div className="mb-12 text-center animate-in zoom-in-95 duration-700">
-            <h1 className="text-8xl font-black italic tracking-tighter text-indigo-500 drop-shadow-[0_0_30px_rgba(99,102,241,0.4)]">WILD LANDS</h1>
-            <p className="text-indigo-300 font-bold tracking-[0.4em] text-xs mt-2 uppercase">{t.tagline}</p>
-          </div>
-          <div className="flex flex-col items-center">
-            <button onClick={() => setView('game')} disabled={!hasSave} className={`w-64 py-4 rounded-xl font-black text-xl mb-4 bg-indigo-600 hover:bg-indigo-500 transition-all active:scale-95 disabled:opacity-20`}>{t.continue}</button>
-            <button onClick={() => hasSave ? setShowNewGameConfirm(true) : startNewGame()} className="w-64 py-4 rounded-xl font-black text-xl mb-4 bg-white/10 hover:bg-white/20 transition-all active:scale-95">{t.newGame}</button>
-          </div>
-          {showNewGameConfirm && (
-            <div className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center p-8 z-[60] animate-in zoom-in-95">
-               <p className="text-red-400 font-black mb-6 uppercase tracking-widest text-center">{t.resetProgress}?<br/><span className="text-xs text-white/40">Tüm ilerlemeniz silinecek.</span></p>
-               <button onClick={startNewGame} className="w-64 py-4 bg-red-600 rounded-xl font-black text-xl mb-4 hover:bg-red-500 active:scale-95 transition-all">{t.newGame}</button>
-               <button onClick={() => setShowNewGameConfirm(false)} className="w-64 py-4 bg-white/10 rounded-xl font-black text-xl hover:bg-white/20 active:scale-95 transition-all">{t.close}</button>
-            </div>
-          )}
+      {view === 'loading' && (
+        <div className="absolute inset-0 z-[200] flex flex-col items-center justify-center">
+           <div className="text-4xl font-black italic mb-4 text-orange-500 animate-pulse uppercase tracking-tighter">WILD LANDS V5.3</div>
+           <div className="w-64 h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-500 transition-all" style={{ width: `${loadingProgress}%` }} />
+           </div>
         </div>
       )}
-      {isGameOver && (
-        <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-black text-red-600 animate-in fade-in duration-1000">
-          <h1 className="text-9xl font-black mb-8 italic">ÖLDÜN</h1>
-          <button onClick={() => window.location.reload()} className="px-12 py-5 bg-red-600 text-white rounded-2xl font-black text-2xl active:scale-90 transition-transform">{t.tryAgain}</button>
-        </div>
+      {view !== 'loading' && (
+        <>
+          <GameScene 
+            ref={sceneRef}
+            time={gameState.time}
+            campfires={gameState.campfires}
+            isLocked={isLocked}
+            isMobile={isMobile}
+            mobileInput={mobileInput}
+            activeTorch={gameState.activeTorch}
+            activeBow={gameState.activeBow}
+            hasArrows={gameState.inventory.some(i => i.name === 'Arrow')}
+            onLockChange={setIsLocked}
+            onInteract={setInteraction}
+            onPositionUpdate={info => { playerInfoRef.current = { ...info, rot: info.rot }; setPlayerRotation(info.rot); }}
+            onCollect={handleCollect}
+            onShoot={handleShoot}
+            initialPosition={gameState.playerPosition}
+          />
+          <UIOverlay 
+            gameState={gameState}
+            interaction={interaction}
+            isVisible={view === 'game'}
+            isCraftingOpen={isCraftingOpen}
+            setIsCraftingOpen={handleCraftMenuToggle}
+            onCraft={handleCraft}
+            onUseItem={handleUseItem}
+            playerRotation={playerRotation}
+            notifications={notifications}
+            onToggleLanguage={() => setGameState(p => ({...p, settings: {...p.settings, language: p.settings.language === 'tr' ? 'en' : 'tr'}}))}
+            isNearFire={gameState.campfires.some(cf => Math.sqrt(Math.pow(playerInfoRef.current.x - cf.x, 2) + Math.pow(playerInfoRef.current.z - cf.z, 2)) < 8)}
+          />
+          {view === 'menu' && (
+            <div className="absolute inset-0 z-[100] bg-slate-950/80 backdrop-blur-xl flex flex-col items-center justify-center p-8">
+              {menuTab === 'main' ? (
+                <div className="flex flex-col items-center animate-in zoom-in duration-300">
+                  <h1 className="text-8xl font-black italic mb-2 text-orange-500 tracking-tighter drop-shadow-2xl">WILD LANDS</h1>
+                  <p className="text-white/60 font-black uppercase tracking-[0.3em] mb-4 text-sm">{t.slogan}</p>
+                  <p className="text-emerald-400/40 font-black text-xs mb-12 tracking-widest">{VERSION}</p>
+                  <div className="flex flex-col gap-4 w-72 pointer-events-auto">
+                    <button onClick={() => setView('game')} className="py-5 bg-emerald-600 rounded-2xl font-black text-xl hover:scale-105 hover:bg-emerald-500 transition-all shadow-[0_0_30px_rgba(16,185,129,0.3)]">{t.continue}</button>
+                    <button onClick={startNewGame} className="py-4 bg-white/5 border border-orange-500/20 rounded-2xl font-black text-lg hover:bg-orange-500/10 transition-all text-orange-200">{t.newGame}</button>
+                    <button onClick={() => setMenuTab('settings')} className="py-4 bg-white/5 border border-orange-500/20 rounded-2xl font-black text-lg hover:bg-orange-500/10 transition-all text-orange-200">{t.settings}</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full max-w-md bg-slate-900/90 p-10 rounded-[3rem] border border-orange-500/20 shadow-2xl animate-in fade-in slide-in-from-bottom-10 duration-300 pointer-events-auto">
+                  <h2 className="text-4xl font-black italic mb-8 text-orange-500 uppercase tracking-tight">{t.settings}</h2>
+                  <div className="flex flex-col gap-6 mb-12">
+                    <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/5">
+                       <span className="font-black text-sm uppercase opacity-60 tracking-widest">{t.language}</span>
+                       <button onClick={() => setGameState(p => ({...p, settings: {...p.settings, language: p.settings.language === 'tr' ? 'en' : 'tr'}}))} className="bg-emerald-600 px-4 py-2 rounded-xl font-black text-xs uppercase">{gameState.settings.language === 'tr' ? 'Türkçe' : 'English'}</button>
+                    </div>
+                    <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/5">
+                       <span className="font-black text-sm uppercase opacity-60 tracking-widest">{t.music}</span>
+                       <button onClick={() => setGameState(p => ({...p, settings: {...p.settings, musicEnabled: !p.settings.musicEnabled}}))} className={`px-4 py-2 rounded-xl font-black text-xs uppercase transition-colors ${gameState.settings.musicEnabled ? 'bg-emerald-600' : 'bg-red-500/20 text-red-400'}`}>{gameState.settings.musicEnabled ? t.on : t.off}</button>
+                    </div>
+                    <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/5">
+                       <span className="font-black text-sm uppercase opacity-60 tracking-widest">{t.sfx}</span>
+                       <button onClick={() => setGameState(p => ({...p, settings: {...p.settings, sfxEnabled: !p.settings.sfxEnabled}}))} className={`px-4 py-2 rounded-xl font-black text-xs uppercase transition-colors ${gameState.settings.sfxEnabled ? 'bg-emerald-600' : 'bg-red-500/20 text-red-400'}`}>{gameState.settings.sfxEnabled ? t.on : t.off}</button>
+                    </div>
+                  </div>
+                  <button onClick={() => setMenuTab('main')} className="w-full py-4 bg-orange-600/10 border border-orange-500/30 rounded-2xl font-black text-orange-400 uppercase hover:bg-orange-600/20 transition-all">{t.back}</button>
+                </div>
+              )}
+            </div>
+          )}
+          {isGameOver && (
+            <div className="absolute inset-0 z-[200] bg-black flex flex-col items-center justify-center">
+              <h1 className="text-9xl font-black italic text-red-600 mb-8">{t.youDied}</h1>
+              <button onClick={startNewGame} className="px-12 py-5 bg-red-600 text-white rounded-2xl font-black text-2xl hover:scale-110 pointer-events-auto transition-transform">RESTART</button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 };
-
 export default App;

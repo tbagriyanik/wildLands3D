@@ -1,20 +1,48 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/tbagriyanik/wildLands3D/blob/main/Ekran%20g%C3%B6r%C3%BCnt%C3%BCs%C3%BC%202026-01-14%20172253.png" />
-</div>
+# WILD LANDS - 3D Survival RPG
 
-# Run and deploy your AI Studio app
+WILD LANDS is an immersive, high-performance 3D survival experience built using **React**, **Three.js**, and **Tailwind CSS**. Navigate a beautiful yet dangerous wilderness, manage your vital signs, and craft tools to survive.
 
-This contains everything you need to run your app locally.
+## 🌟 Key Features
 
-View your app in AI Studio: https://ai.studio/apps/drive/1n2BAhSwdsXzTEdipO5f1iW3ewS9elo-2
+- **Immersive 3D Environment**: High-fidelity rendering with dynamic sky cycles, atmospheric fog, and realistic lighting.
+- **Deep Survival Mechanics**: Monitor Health, Hunger, Thirst, and Temperature. Survival decay rates are dynamically affected by your actions and the environment.
+- **Resource Gathering**: Interact with the world to chop trees for wood, mine rocks for stone/flint, and gather food from bushes and apple trees.
+- **Advanced Crafting**: Use the crafting menu (C) to build campfires, bows, arrows, torches, and waterskins.
+- **Dynamic Wildlife**: Hunt various animals including rabbits, squirrels, and deer, each with their own AI flight behaviors.
+- **Localization**: Full support for both **English** and **Turkish** languages.
 
-## Run Locally
+## 🛠 Latest Technical Updates
 
-**Prerequisites:**  Node.js
+- **Fixed Movement & Rotation**: Re-engineered the PointerLockControls integration to ensure seamless mouse look and responsive WASD movement.
+- **Optimized Map Generation**:
+  - Foliage is now strictly generated in the map center for a more focused gameplay experience.
+  - Exactly **100 trees** and **100 rocks** are spawned per session.
+  - **Collision-Aware Spawning**: Implemented a 2.8m safety buffer between all spawned objects to prevent overlapping and clipping.
+- **Visual Refinement**: Rocks have been scaled down by **75%** (to 0.375 units) to improve environmental realism and navigation.
+- **Performance First**: Removed external AI dependencies to prioritize a smooth 60FPS core gameplay loop.
+- **Enhanced UI**: A "glassmorphism" interface providing real-time stats, a compass, and an intuitive hotbar.
 
+## 🎮 Controls
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+| Key | Action |
+|-----|--------|
+| **WASD** | Movement |
+| **Mouse Move** | Look around (Lock with Click) |
+| **Left Click / E** | Interact / Collect / Action |
+| **Right Click** | Zoom / Aim |
+| **Shift** | Sprint |
+| **Space** | Jump |
+| **C** | Open/Close Crafting Menu |
+| **1-9** | Quick Use Hotbar Items |
+| **Esc** | Pause / Unlock Mouse |
+
+## 🏗 Technical Stack
+
+- **Engine**: Three.js (WebGL)
+- **Framework**: React 19
+- **Styling**: Tailwind CSS
+- **Controls**: PointerLockControls (Desktop) / Custom Virtual Joystick (Mobile)
+- **Assets**: Procedural geometries with high-quality texture mapping.
+
+---
+*Created by a Senior Frontend Engineer. Optimized for modern browsers.*
