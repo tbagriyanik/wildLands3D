@@ -4,7 +4,7 @@ export const INITIAL_STATS = {
   hunger: 100,
   thirst: 100,
   energy: 100,
-  temperature: 36.6,
+  temperature: 100, // 0-100 ölçeğine çekildi
   dirtiness: 0,
 };
 
@@ -16,9 +16,9 @@ export const SURVIVAL_DECAY_RATES = {
   energy_sprint: 0.5,
   energy_recovery_fire: 0.8,
   health_recovery_fire: 0.3,
-  temp_night_drop: 0.05,
-  temp_day_drop: 0.01,
-  temp_fire_gain: 0.15,
+  temp_night_drop: 0.08,  // Gece daha sert soğuk
+  temp_day_drop: 0.02,    // Gündüz hafif soğuma
+  temp_fire_gain: 0.35,   // Ateşten gelen baz ısı kazancı
   dirtiness_gain: 0.08, 
 };
 
@@ -50,7 +50,7 @@ export const TRANSLATIONS = {
     hunger: "HUNGER",
     thirst: "THIRST",
     energy: "ENERGY",
-    temp: "TEMP",
+    temp: "WARMTH",
     dirt: "DIRT",
     emptyInventory: "Empty...",
     tree: "CHOP TREE",
@@ -92,7 +92,7 @@ export const TRANSLATIONS = {
     hunger: "AÇLIK",
     thirst: "SUSUZLUK",
     energy: "ENERJİ",
-    temp: "ISI",
+    temp: "SICAKLIK",
     dirt: "KİR",
     emptyInventory: "Boş...",
     tree: "ODUN KES",

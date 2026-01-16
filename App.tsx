@@ -6,7 +6,7 @@ import { GameState, InteractionTarget, MobileInput } from './types';
 import { INITIAL_STATS, SURVIVAL_DECAY_RATES, TRANSLATIONS, SFX_URLS, MUSIC_URL, TIME_TICK_RATE } from './constants';
 
 const SAVE_KEY = 'wildlands_survival_v5.6'; 
-const VERSION = 'v5.6.1 "The Chef Update"';
+const VERSION = 'v5.6.2 "The Warmth Update"';
 const SPAWN_X = 160; 
 const CENTER_Z = 120;
 
@@ -168,17 +168,35 @@ const App: React.FC = () => {
         stats.dirtiness = Math.min(100, stats.dirtiness + SURVIVAL_DECAY_RATES.dirtiness_gain);
 
         const updatedFires = prev.campfires.map(f => ({ ...f, life: f.life - TIME_TICK_RATE })).filter(f => f.life > 0);
-        let nearFire = updatedFires.some(cf => Math.sqrt(Math.pow(playerInfoRef.current.x - cf.x, 2) + Math.pow(playerInfoRef.current.z - cf.z, 2)) < 8);
+        
+        // Find closest fire for dynamic temperature
+        let minFireDist = Infinity;
+        updatedFires.forEach(cf => {
+          const d = Math.sqrt(Math.pow(playerInfoRef.current.x - cf.x, 2) + Math.pow(playerInfoRef.current.z - cf.z, 2));
+          if (d < minFireDist) minFireDist = d;
+        });
 
-        if (nearFire) {
-          stats.health = Math.min(100, stats.health + 0.8);
-          stats.energy = Math.min(100, stats.energy + 1.2);
+        const isNearFire = minFireDist < 8;
+        const isNight = prev.time > 1900 || prev.time < 500;
+        
+        // Temperature logic
+        let tempChange = isNight ? -SURVIVAL_DECAY_RATES.temp_night_drop : -SURVIVAL_DECAY_RATES.temp_day_drop;
+        if (isNearFire) {
+          const proximityMult = Math.max(0, 1 - (minFireDist / 8));
+          tempChange += (SURVIVAL_DECAY_RATES.temp_fire_gain * proximityMult * 12);
+          
+          // Bonus health/energy if near fire
+          stats.health = Math.min(100, stats.health + 0.8 * proximityMult);
+          stats.energy = Math.min(100, stats.energy + 1.2 * proximityMult);
         }
+        stats.temperature = Math.max(0, Math.min(100, stats.temperature + tempChange));
 
+        // Damage penalties
         let healthPenalty = 0;
         if (stats.hunger < 10) healthPenalty += 0.4;
         if (stats.thirst < 10) healthPenalty += 0.6;
         if (stats.dirtiness > 85) healthPenalty += 0.15;
+        if (stats.temperature < 15) healthPenalty += 0.8; // Freezing damage
         
         stats.health = Math.max(0, stats.health - healthPenalty);
         if (stats.health <= 0) setIsGameOver(true);
