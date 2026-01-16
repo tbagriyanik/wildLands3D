@@ -56,8 +56,24 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
   const campfireMeshes = useRef<Map<string, THREE.Group>>(new Map());
 
   useImperativeHandle(ref, () => ({
-    requestLock: () => controlsRef.current?.lock(),
-    requestUnlock: () => controlsRef.current?.unlock()
+    requestLock: () => {
+      if (controlsRef.current && !controlsRef.current.isLocked) {
+        // Modern browsers return a promise from lock()
+        const lockResult = controlsRef.current.lock();
+        if (lockResult instanceof Promise) {
+          lockResult.catch(err => {
+            if (err.name !== 'NotAllowedError') {
+              console.warn('PointerLock request failed:', err.message);
+            }
+          });
+        }
+      }
+    },
+    requestUnlock: () => {
+      if (controlsRef.current && controlsRef.current.isLocked) {
+        controlsRef.current.unlock();
+      }
+    }
   }));
 
   const performInteraction = () => {
@@ -65,14 +81,14 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
     const ray = new THREE.Raycaster();
     ray.setFromCamera(new THREE.Vector2(0, 0), cameraRef.current);
     
-    // Su kontrolü
+    // Water interaction
     const waterHits = ray.intersectObjects(waterRef.current, true);
     if (waterHits.length > 0 && waterHits[0].distance < 4.5) {
       propsRef.current.onCollect('Water');
       return;
     }
 
-    // Nesne ve Ateş kontrolü
+    // Objects and Campfire interaction
     const hits = ray.intersectObjects([...objectsRef.current, ...Array.from(campfireMeshes.current.values())], true);
     if (hits.length > 0 && hits[0].distance < 4.5) {
       let obj = hits[0].object; 
@@ -163,7 +179,6 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
     scene.add(sunLight); sunLightRef.current = sunLight;
     scene.add(new THREE.HemisphereLight(0xeeeeff, 0x444444, 0.5));
 
-    // Powerfull Torch Light attached to camera
     const torchLight = new THREE.PointLight(0xffeebb, 0, 35);
     torchLight.castShadow = true;
     camera.add(torchLight);
@@ -194,7 +209,6 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
         const leaves = new THREE.Mesh(new THREE.SphereGeometry(2, 8, 8), new THREE.MeshStandardMaterial({ color: type === 'tree' ? 0x1a4a14 : type === 'appleTree' ? 0x1a6a14 : 0x2a5a14 }));
         leaves.position.y = 6; g.add(leaves);
         
-        // Add fruits
         if (type === 'appleTree' || type === 'pearTree') {
           for (let i = 0; i < 5; i++) {
             const fruit = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), new THREE.MeshStandardMaterial({ color: type === 'appleTree' ? 0xff0000 : 0xcccc00 }));
@@ -210,7 +224,6 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
       } else {
         const bush = new THREE.Mesh(new THREE.SphereGeometry(0.75, 8, 8), new THREE.MeshStandardMaterial({ color: 0x225511 }));
         bush.position.y = 0.45; g.add(bush);
-        // Berries on bush
         for (let i = 0; i < 8; i++) {
            const berry = new THREE.Mesh(new THREE.SphereGeometry(0.06, 4, 4), new THREE.MeshStandardMaterial({ color: 0x880000 }));
            const angle = Math.random() * Math.PI * 2;
@@ -265,10 +278,21 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
     const controls = new PointerLockControls(camera, renderer.domElement);
     controlsRef.current = controls;
 
-    renderer.domElement.addEventListener('mousedown', (e) => {
-      if (!controls.isLocked) controls.lock();
-      else if (e.button === 0) performInteraction();
-    });
+    controls.addEventListener('lock', () => propsRef.current.onLockChange(true));
+    controls.addEventListener('unlock', () => propsRef.current.onLockChange(false));
+
+    const onMouseClick = (e: MouseEvent) => {
+      if (!controls.isLocked) {
+        const lockResult = controls.lock();
+        if (lockResult instanceof Promise) {
+          lockResult.catch(() => {});
+        }
+      } else if (e.button === 0) {
+        performInteraction();
+      }
+    };
+
+    renderer.domElement.addEventListener('mousedown', onMouseClick);
 
     const animate = () => {
       requestAnimationFrame(animate); 
@@ -276,12 +300,10 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
       if (!cameraRef.current) return;
       const cam = cameraRef.current;
 
-      // Update Torch Light
       if (torchLightRef.current) {
         torchLightRef.current.intensity = propsRef.current.activeTorch ? 3.5 : 0;
       }
 
-      // Smooth Zoom
       currentFov.current = THREE.MathUtils.lerp(currentFov.current, targetFov.current, 0.1);
       if (Math.abs(currentFov.current - cam.fov) > 0.05) {
         cam.fov = currentFov.current;
@@ -352,14 +374,12 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
              let hitObj = hits[0].object; while(hitObj.parent && !hitObj.userData.isAnimal && hitObj.type !== 'Scene') hitObj = hitObj.parent;
              if (hitObj.userData.isAnimal) {
                 scene.remove(hitObj); animalsRef.current = animalsRef.current.filter(a => a !== hitObj);
-                // Big animals drop more meat
                 const meatCount = hitObj.userData.type === 'deer' ? 3 : 1;
                 for(let k=0; k<meatCount; k++) propsRef.current.onCollect('Meat');
                 scene.remove(arrow.mesh); arrowsRef.current.splice(i, 1);
              } else { arrow.active = false; arrow.mesh.position.copy(hits[0].point); }
           }
         } else {
-          // Automatic arrow collection
           if (cam.position.distanceTo(arrow.mesh.position) < 2.2) {
             propsRef.current.onCollect('Arrow');
             scene.remove(arrow.mesh);
@@ -414,10 +434,13 @@ const GameScene = forwardRef<GameSceneHandle, GameSceneProps>((props, ref) => {
     const kd = (e: KeyboardEvent) => { keysRef.current[e.code.toLowerCase()] = true; };
     const ku = (e: KeyboardEvent) => { keysRef.current[e.code.toLowerCase()] = false; };
     window.addEventListener('keydown', kd); window.addEventListener('keyup', ku);
+    
     return () => { 
-      renderer.dispose(); mountRef.current?.removeChild(renderer.domElement); 
+      renderer.dispose(); 
+      if (mountRef.current) mountRef.current.removeChild(renderer.domElement); 
       window.removeEventListener('mousedown', handleMouseDown); window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku);
+      controls.dispose();
     };
   }, []);
 

@@ -79,18 +79,18 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
 
   const getHotbarItems = () => {
     const slots = new Array(7).fill(null);
-    slots[0] = inventory.find(i => i.name === 'Bow');
-    slots[1] = inventory.find(i => i.name === 'Torch');
-    slots[2] = inventory.find(i => i.name === 'Waterskin') || inventory.find(i => i.name === 'Water');
-    slots[3] = inventory.find(i => i.name === 'Meat');
-    slots[4] = inventory.find(i => ['Apple', 'Pear', 'Berries'].includes(i.name));
-    slots[5] = inventory.find(i => i.name === 'Cooked Meat');
-    slots[6] = inventory.find(i => i.name === 'Cooked Fruit');
+    slots[0] = inventory.find(i => i.name === 'Bow' && i.count > 0);
+    slots[1] = inventory.find(i => i.name === 'Torch' && i.count > 0);
+    slots[2] = inventory.find(i => (i.name === 'Waterskin' || i.name === 'Water') && i.count > 0);
+    slots[3] = inventory.find(i => i.name === 'Meat' && i.count > 0);
+    slots[4] = inventory.find(i => ['Apple', 'Pear', 'Berries'].includes(i.name) && i.count > 0);
+    slots[5] = inventory.find(i => i.name === 'Cooked Meat' && i.count > 0);
+    slots[6] = inventory.find(i => i.name === 'Cooked Fruit' && i.count > 0);
     return slots;
   };
 
   const hotbarItems = getHotbarItems();
-  const resources = inventory.filter(i => ['Wood', 'Stone', 'Flint Stone', 'Arrow'].includes(i.name));
+  const resources = inventory.filter(i => ['Wood', 'Stone', 'Flint Stone', 'Arrow'].includes(i.name) && i.count > 0);
 
   const hours = Math.floor(time / 100);
   const minutes = Math.floor((time % 100) * 0.6);
@@ -123,7 +123,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
 
   return (
     <div className="absolute inset-0 pointer-events-none p-2 sm:p-4 lg:p-6 flex flex-col justify-between z-50 overflow-hidden">
-      {/* Notifications - PERSISTENT ON TOP */}
+      {/* Notifications */}
       <div className="fixed top-2 right-2 sm:top-6 sm:right-6 flex flex-col gap-1.5 sm:gap-2 z-[1000] items-end max-w-[150px] sm:max-w-xs pointer-events-none">
         {notifications.map(n => (
           <div key={n.id} className="bg-emerald-600/90 backdrop-blur-md px-2.5 py-1 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl border border-white/20 text-[8px] sm:text-[11px] font-black uppercase tracking-wider shadow-2xl animate-in slide-in-from-right duration-300">
@@ -174,7 +174,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
           <div className="flex flex-col gap-1 sm:ml-1">
             {resources.map(res => (
               <div key={res.id} className="bg-slate-900/40 backdrop-blur-md px-1.5 py-1 sm:px-2 sm:py-1 rounded-lg border border-white/5 flex items-center justify-between shadow-lg w-full max-w-[100px] sm:max-w-[140px] animate-in slide-in-from-left duration-300">
-                <div className="flex items-center gap-1 sm:gap-1.5 overflow-hidden">
+                <div className="flex items-center gap-1.5 sm:gap-2 overflow-hidden">
                   <span className="text-xs sm:text-base flex-shrink-0">{getItemIcon(res.name)}</span>
                   <span className="text-[6px] sm:text-[8px] font-black text-white/40 uppercase tracking-tight truncate">{res.name}</span>
                 </div>
@@ -201,18 +201,39 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
       <div className="flex flex-col items-center gap-1 sm:gap-2 w-full mb-1 sm:mb-2 pointer-events-none">
         <div className="bg-slate-950/80 backdrop-blur-3xl p-1.5 sm:p-3 rounded-2xl sm:rounded-[2rem] border border-white/10 flex gap-1 sm:gap-2.5 pointer-events-auto shadow-2xl relative max-w-full overflow-x-auto scrollbar-hide">
           {hotbarItems.map((item, idx) => {
-            const isKeyPressed = activeSlot === (idx + 1);
-            const isActive = item && ((item.name === 'Bow' && activeBow) || (item.name === 'Torch' && activeTorch));
+            const slotNum = idx + 1;
+            const isJustUsed = activeSlot === slotNum;
+            const isToolActive = item && (
+              (item.name === 'Bow' && activeBow) || 
+              (item.name === 'Torch' && activeTorch)
+            );
+            
             return (
               <button 
                 key={idx} 
                 onClick={() => item && onUseItem(item.id)}
-                className={`relative w-9 h-9 sm:w-14 sm:h-14 rounded-lg sm:rounded-2xl border transition-all flex items-center justify-center text-lg sm:text-2xl hover:bg-white/10 active:scale-95 flex-shrink-0 ${isActive ? 'bg-emerald-500/25 border-emerald-400 ring-2 ring-emerald-500/40 scale-105 sm:scale-110 -translate-y-0.5 sm:-translate-y-1' : 'bg-white/5 border-white/5'} ${isKeyPressed ? 'scale-90 bg-emerald-500/40 border-emerald-300' : ''}`}
+                className={`
+                  relative w-10 h-10 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl border transition-all duration-200 
+                  flex items-center justify-center text-xl sm:text-3xl hover:bg-white/10 active:scale-95 flex-shrink-0 
+                  ${isToolActive ? 'bg-orange-500/30 border-orange-400 ring-2 ring-orange-400/50 scale-110 -translate-y-1 z-10' : 'bg-white/5 border-white/5'} 
+                  ${isJustUsed ? 'scale-90 bg-white/20 border-white/30' : ''}
+                `}
               >
-                <span className="absolute top-0.5 left-1 text-[6px] sm:text-[9px] font-black text-white/20">{idx + 1}</span>
-                {item ? getItemIcon(item.name) : <div className="w-2 h-2 sm:w-3.5 sm:h-3.5 rounded-full border border-white/5 bg-black/20" />}
+                <span className="absolute top-0.5 left-1 text-[6px] sm:text-[10px] font-black text-white/30">{slotNum}</span>
+                {item ? (
+                  <span className={`transition-transform duration-200 ${isToolActive ? 'scale-110' : ''}`}>
+                    {getItemIcon(item.name)}
+                  </span>
+                ) : (
+                  <div className="w-1.5 h-1.5 sm:w-2.5 sm:h-2.5 rounded-full border border-white/5 bg-black/30 opacity-20" />
+                )}
                 {item && item.count > 1 && (
-                  <span className="absolute -bottom-0.5 -right-0.5 sm:-bottom-1 sm:-right-1 bg-orange-600 text-[7px] sm:text-[10px] font-black px-1 sm:px-1.5 rounded-md sm:rounded-lg border border-white/10 shadow-md">{item.count}</span>
+                  <span className="absolute -bottom-1 -right-1 bg-orange-600 text-[7px] sm:text-[11px] font-black px-1.5 py-0.5 rounded-md sm:rounded-lg border border-white/10 shadow-lg min-w-[1.2rem] text-center">
+                    {item.count}
+                  </span>
+                )}
+                {isToolActive && (
+                  <div className="absolute -top-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-emerald-500 rounded-full border border-white animate-pulse" />
                 )}
               </button>
             );

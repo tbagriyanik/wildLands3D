@@ -129,8 +129,14 @@ const App: React.FC = () => {
   const handleCraftMenuToggle = useCallback((forceState?: boolean) => {
     const nextState = forceState !== undefined ? forceState : !isCraftingOpen;
     setIsCraftingOpen(nextState);
-    if (!nextState) { setTimeout(() => sceneRef.current?.requestLock(), 100); } 
-    else { sceneRef.current?.requestUnlock(); }
+    if (!nextState) { 
+      // Re-locking usually requires user interaction, but we try anyway.
+      // Better way: UIOverlay should have a "RESUME" button that calls lock.
+      setTimeout(() => sceneRef.current?.requestLock(), 50); 
+    } 
+    else { 
+      sceneRef.current?.requestUnlock(); 
+    }
   }, [isCraftingOpen]);
 
   useEffect(() => {
@@ -144,7 +150,9 @@ const App: React.FC = () => {
         const slot = parseInt(code.replace('Digit', ''));
         if (slot >= 1 && slot <= 7) {
           setActiveSlot(slot);
+          // Visual click feedback
           setTimeout(() => setActiveSlot(null), 150);
+          
           switch(slot) {
             case 1: if (gameState.inventory.some(i => i.name === 'Bow')) setGameState(p => ({ ...p, activeBow: !p.activeBow, activeTorch: false })); break;
             case 2: if (gameState.inventory.some(i => i.name === 'Torch')) setGameState(p => ({ ...p, activeTorch: !p.activeTorch, activeBow: false })); break;
@@ -233,7 +241,6 @@ const App: React.FC = () => {
           }
           return { ...prev, inventory: inv };
         } else {
-          // Direct drinking if no waterskin
           playSFX(SFX_URLS.drink_swallow);
           addNotification(t.water + " " + t.collected);
           return { ...prev, stats: { ...prev.stats, thirst: Math.min(100, prev.stats.thirst + 40) } };
