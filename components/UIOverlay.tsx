@@ -164,7 +164,6 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
       {/* Main HUD: Left Side */}
       <div className="flex flex-row justify-between w-full pointer-events-none">
         <div className="flex flex-col gap-2 pointer-events-auto max-w-[120px] sm:max-w-[200px]">
-          {/* Day/Time Panel - White Text */}
           <div className="bg-slate-950/85 backdrop-blur-3xl p-2 sm:p-4 rounded-[25px] border border-white/10 flex flex-col gap-2 sm:gap-3 shadow-2xl relative overflow-hidden">
             {isNearFire && <div className="absolute top-0 right-0 bg-orange-600/50 px-1.5 py-0.5 text-[6px] sm:text-[8px] font-black uppercase text-white border-l border-b border-orange-500/20 animate-pulse tracking-tighter z-20">WARM</div>}
             <div className="flex flex-col border-b border-white/5 pb-1.5 sm:pb-2">
@@ -193,7 +192,6 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
             </div>
           </div>
 
-          {/* Left Resource List - White Text */}
           {resources.length > 0 && (
             <div className="flex flex-col bg-slate-950/70 backdrop-blur-md rounded-2xl border border-white/10 overflow-hidden shadow-xl w-full max-w-[120px] sm:max-w-[160px] animate-in slide-in-from-left">
               {resources.map((res, idx) => (
@@ -209,40 +207,43 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
           )}
         </div>
 
-        {/* Crafting Menu: Sidebar - High Z-index */}
+        {/* Crafting Menu: Center Modal */}
         {isCraftingOpen && (
-          <div className="flex flex-col gap-2 pointer-events-auto w-64 animate-in slide-in-from-right duration-300 z-[100]">
-            <div className="bg-slate-950/90 backdrop-blur-3xl p-4 rounded-[25px] border border-orange-500/50 shadow-2xl flex flex-col gap-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
-               <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                 <h2 className="text-lg font-black text-white italic uppercase tracking-tighter">CRAFTING</h2>
-                 <button onClick={() => setIsCraftingOpen(false)} className="text-white/40 hover:text-white text-2xl leading-none">×</button>
+          <div className="absolute inset-0 z-[200] bg-black/60 backdrop-blur-md flex items-center justify-center pointer-events-auto p-4">
+            <div className="bg-slate-950/95 p-6 sm:p-8 rounded-[40px] border border-orange-500/50 w-full max-w-2xl shadow-2xl flex flex-col gap-6 animate-in zoom-in duration-300">
+               <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                 <h2 className="text-3xl sm:text-4xl font-black text-orange-500 italic uppercase tracking-tighter">CRAFTING</h2>
+                 <button onClick={() => setIsCraftingOpen(false)} className="text-white/40 hover:text-white text-4xl leading-none transition-colors">×</button>
                </div>
-               <div className="flex flex-col gap-2">
-                 {['campfire', 'shelter', 'bow', 'arrow', 'torch', 'waterskin'].map(type => {
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                 {['campfire', 'shelter', 'bow', 'arrow', 'torch', 'waterskin', 'cook_meat', 'cook_fruit'].map(type => {
                    const { can, msg } = checkRequirements(type);
-                   const names: Record<string, string> = { campfire: t.campfire, shelter: t.shelter, bow: t.bow, arrow: t.arrow, torch: t.torch, waterskin: t.waterskin };
-                   const icons: Record<string, string> = { campfire: "🔥", shelter: "🏠", bow: "🏹", arrow: "🎯", torch: "🔦", waterskin: "🍶" };
+                   const names: Record<string, string> = { campfire: t.campfire, shelter: t.shelter, bow: t.bow, arrow: t.arrow, torch: t.torch, waterskin: t.waterskin, cook_meat: t.cookMeat, cook_fruit: t.cookFruit };
+                   const icons: Record<string, string> = { campfire: "🔥", shelter: "🏠", bow: "🏹", arrow: "🎯", torch: "🔦", waterskin: "🍶", cook_meat: "🍖", cook_fruit: "🥧" };
                    return (
                      <button 
                         key={type} 
                         onClick={can ? () => onCraft(type) : undefined}
-                        className={`flex items-center justify-between p-3 rounded-xl border transition-all ${can ? 'bg-white/5 border-white/10 hover:bg-orange-600/30 hover:border-orange-500/50' : 'bg-black/40 border-white/5 opacity-30 cursor-not-allowed'}`}
+                        className={`group flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 ${can ? 'bg-white/5 border-white/10 hover:bg-orange-600/30 hover:border-orange-500 hover:scale-[1.02]' : 'bg-black/40 border-white/5 opacity-30 cursor-not-allowed'}`}
                      >
-                       <div className="flex flex-col leading-tight">
-                         <span className="text-[11px] font-black text-white uppercase">{names[type]}</span>
-                         <span className={`text-[8px] font-bold ${can ? 'text-orange-400' : 'text-red-500'}`}>{msg}</span>
+                       <div className="flex flex-col leading-tight text-left">
+                         <span className="text-[14px] sm:text-[16px] font-black text-white uppercase group-hover:text-white">{names[type]}</span>
+                         <span className={`text-[9px] sm:text-[11px] font-bold ${can ? 'text-orange-400' : 'text-red-500'}`}>{msg}</span>
                        </div>
-                       <span className="text-xl">{icons[type]}</span>
+                       <span className="text-3xl sm:text-4xl">{icons[type]}</span>
                      </button>
                    );
                  })}
+               </div>
+               <div className="bg-white/5 p-4 rounded-2xl text-[10px] font-black opacity-30 uppercase tracking-widest text-center text-white">
+                  Navigate the world to find more resources and unlock recipes
                </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Interaction Prompts - Yellow Highlight */}
+      {/* Interaction Prompts */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 w-full max-w-[90vw] pointer-events-none">
          {hasInteraction && (
            <div className="flex flex-col items-center gap-2 animate-in slide-in-from-top duration-300">
@@ -259,7 +260,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
          )}
       </div>
 
-      {/* Hotbar - Slot Labels Top Center */}
+      {/* Hotbar */}
       <div className="flex flex-col items-center gap-1 sm:gap-2 w-full mb-1 sm:mb-2 pointer-events-none">
         <div className="bg-slate-950/85 backdrop-blur-3xl p-1.5 sm:p-3 rounded-2xl sm:rounded-[2.5rem] border border-white/10 flex gap-1 sm:gap-3 pointer-events-auto shadow-2xl relative max-w-full overflow-x-auto scrollbar-hide">
           {hotbarItems.map((item, idx) => {
@@ -270,12 +271,9 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
             const waterFullness = waterskinCount > 0 ? (waterCount / waterskinCount) * 100 : 0;
             return (
               <button key={idx} onClick={() => { if(item) onUseItem(item.id); else if(slotNum === 1) onUseItem('Bow'); }} className={`relative w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl border transition-all duration-300 flex items-center justify-center text-xl sm:text-3xl hover:bg-white/10 active:scale-90 flex-shrink-0 ${isToolActive ? 'bg-orange-600 border-orange-400 ring-4 ring-orange-500/20 scale-110 -translate-y-2 z-10' : 'bg-white/5 border-white/5'} ${activeSlot === slotNum ? 'scale-90 bg-white/20' : ''}`}>
-                {/* Slot Number - White Top Center */}
                 <span className="absolute top-1 left-1/2 -translate-x-1/2 text-[8px] sm:text-[10px] font-black text-white/60 pointer-events-none">{slotNum}</span>
-                
                 {isTorchSlot && <div className="absolute top-3 left-1/2 -translate-x-1/2 w-8 sm:w-10 h-0.5 bg-black/40 rounded-full overflow-hidden border border-white/5 z-20"><div className="h-full bg-orange-400 transition-all duration-300" style={{ width: `${torchLife}%` }} /></div>}
                 {isWaterSlot && waterskinCount > 0 && <div className="absolute top-3 left-1/2 -translate-x-1/2 w-8 sm:w-10 h-0.5 bg-black/40 rounded-full overflow-hidden border border-white/5 z-20"><div className="h-full bg-blue-400 transition-all duration-300" style={{ width: `${waterFullness}%` }} /></div>}
-                
                 {item ? <span className="mt-2">{getItemIcon(item.name)}</span> : <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full border border-white/10 bg-black/30 opacity-5" />}
                 {item && item.count > 1 && !isWaterSlot && <span className="absolute -bottom-1 -right-1 bg-white text-slate-950 text-[8px] sm:text-[10px] font-black px-1.5 py-0.5 rounded-md border border-slate-950/20 min-w-[1.2rem] text-center shadow-lg">{item.count}</span>}
               </button>

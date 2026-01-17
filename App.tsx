@@ -88,12 +88,29 @@ const App: React.FC = () => {
     return getInitialState();
   });
 
+  // Otomatik Kayıt Sistemi (Her 5 saniyede bir konumu ve dünyayı kaydet)
+  useEffect(() => {
+    if (view !== 'game') return;
+    const saveTimer = setInterval(() => {
+      setGameState(prev => {
+        const stateToSave = {
+          ...prev,
+          playerPosition: { ...playerInfoRef.current },
+          playerRotation: playerRotation
+        };
+        localStorage.setItem(SAVE_KEY, JSON.stringify(stateToSave));
+        return stateToSave;
+      });
+    }, 5000);
+    return () => clearInterval(saveTimer);
+  }, [view, playerRotation]);
+
   const addNotification = useCallback((text: string) => {
     const id = Date.now() + Math.random();
     setNotifications(prev => [...prev, { id, text }].slice(-5));
     setTimeout(() => { 
       setNotifications(prev => prev.filter(n => n.id !== id)); 
-    }, 4000); // 4 saniye sonra otomatik silinme
+    }, 4000);
   }, []);
 
   const playSFX = useCallback((url: string, volume = 0.4) => {
@@ -315,7 +332,7 @@ const App: React.FC = () => {
       const t = TRANSLATIONS[prev.settings.language];
       if (type === 'Sleep') {
         setIsSleeping(true); playSFX(SFX_URLS.ui_click);
-        setNotifications([]); // Uyuma anında bildirimleri temizle
+        setNotifications([]); 
         setTimeout(() => {
           setGameState(p => {
             let nextTime = p.time + 500; let nextDay = p.day;
