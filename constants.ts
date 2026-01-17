@@ -4,7 +4,7 @@ export const INITIAL_STATS = {
   hunger: 100,
   thirst: 100,
   energy: 100,
-  temperature: 20, // Başlangıç sıcaklığı 20°C
+  temperature: 20, 
   dirtiness: 0,
 };
 
@@ -16,8 +16,8 @@ export const SURVIVAL_DECAY_RATES = {
   energy_sprint: 0.5,
   energy_recovery_fire: 0.8,
   health_recovery_fire: 0.3,
-  temp_lerp_speed: 0.02, // Ortam sıcaklığına uyum hızı
-  temp_fire_bonus: 15,    // Ateşin sağladığı ek ısı (°C)
+  temp_lerp_speed: 0.02, 
+  temp_fire_bonus: 15,    
   dirtiness_gain: 0.08, 
 };
 
@@ -72,6 +72,7 @@ export const TRANSLATIONS = {
     meat: "RAW MEAT",
     cookedMeat: "COOKED MEAT",
     cookedFruit: "COOKED FRUIT",
+    fruit: "FRUIT",
     slogan: "Are you ready to survive the wild?",
     back: "BACK",
     music: "MUSIC",
@@ -82,7 +83,9 @@ export const TRANSLATIONS = {
     cook: "COOK",
     fuel: "FUEL",
     requiresFire: "REQUIRES FIRE",
-    partridge: "HUNT PARTRIDGE"
+    partridge: "HUNT PARTRIDGE",
+    cookMeat: "COOK MEAT",
+    cookFruit: "COOK FRUIT"
   },
   tr: {
     newGame: "YENİ OYUN",
@@ -117,6 +120,7 @@ export const TRANSLATIONS = {
     meat: "ÇİĞ ET",
     cookedMeat: "PİŞMİŞ ET",
     cookedFruit: "PİŞMİŞ MEYVE",
+    fruit: "MEYVE",
     slogan: "Vahşi doğada hayatta kalmaya hazır mısın?",
     back: "GERİ",
     music: "MÜZİK",
@@ -127,7 +131,9 @@ export const TRANSLATIONS = {
     cook: "PİŞİR",
     fuel: "YAKIT",
     requiresFire: "ATEŞ GEREKLİ",
-    partridge: "KEKLİK AVLA"
+    partridge: "KEKLİK AVLA",
+    cookMeat: "ET PİŞİR",
+    cookFruit: "MEYVE PİŞİR"
   }
 };
 
