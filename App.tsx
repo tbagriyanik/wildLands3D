@@ -369,24 +369,9 @@ const App: React.FC = () => {
 
   const [isGameOver, setIsGameOver] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
-  const saveTimerRef = useRef<number | null>(null);
   const startNewGame = useCallback(() => { localStorage.removeItem(SAVE_KEY); window.location.reload(); }, []);
   const setLanguage = (lang: 'tr' | 'en') => { setGameState(prev => ({ ...prev, settings: { ...prev.settings, language: lang } })); playSFX(SFX_URLS.ui_click); };
   const t = TRANSLATIONS[gameState.settings.language];
-  const hasSave = !!localStorage.getItem(SAVE_KEY);
-
-  // Auto-save game state with debounce and save on unload
-  useEffect(() => {
-    const doSave = () => {
-      try { localStorage.setItem(SAVE_KEY, JSON.stringify(gameState)); } catch (e) { }
-    };
-    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
-    // @ts-ignore
-    saveTimerRef.current = window.setTimeout(doSave, 700);
-    const handleBeforeUnload = () => doSave();
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => { if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current); window.removeEventListener('beforeunload', handleBeforeUnload); };
-  }, [gameState]);
 
   return (
     <div className="w-screen h-screen bg-slate-950 text-white font-sans overflow-hidden select-none">
@@ -424,7 +409,7 @@ const App: React.FC = () => {
                     <button onClick={() => setLanguage('en')} className={`px-4 py-2 rounded-xl font-black border transition-all ${gameState.settings.language === 'en' ? 'bg-orange-600 border-orange-400 text-white' : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'}`}>EN</button>
                   </div>
                   <div className="flex flex-col gap-5 w-64 sm:w-80 pointer-events-auto">
-                    <button disabled={!hasSave} onClick={() => { if (!hasSave) return; setView('game'); setTimeout(() => sceneRef.current?.requestLock(), 200); }} className={`group relative py-5 sm:py-6 rounded-2xl sm:rounded-3xl font-black text-xl sm:text-2xl overflow-hidden transition-all shadow-[0_20px_40px_rgba(16,185,129,0.3)] ${hasSave ? 'bg-emerald-600 hover:scale-105 hover:bg-emerald-500' : 'bg-white/5 text-white/30 cursor-not-allowed border border-white/5'}`}>
+                    <button onClick={() => { setView('game'); setTimeout(() => sceneRef.current?.requestLock(), 200); }} className="group relative py-5 sm:py-6 bg-emerald-600 rounded-2xl sm:rounded-3xl font-black text-xl sm:text-2xl overflow-hidden hover:scale-105 hover:bg-emerald-500 transition-all shadow-[0_20px_40px_rgba(16,185,129,0.3)]">
                       <span className="relative z-10">{t.continue}</span>
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full duration-1000 transition-transform" />
                     </button>
