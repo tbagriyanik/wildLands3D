@@ -1,37 +1,38 @@
-# 🌲 WILD LANDS - 3D Survival RPG
 
-WILD LANDS is a high-performance, web-native 3D survival experience built with **React 19**, **Three.js**, and **Tailwind CSS**.
+# 🌲 WILD LANDS - 3D Survival RPG (v6.4.0)
 
-## 🌟 Core Features
+WILD LANDS, **React 19**, **Three.js** ve **Tailwind CSS** kullanılarak geliştirilmiş, yüksek performanslı bir web tabanlı 3D hayatta kalma oyunudur.
 
-### 🦌 Advanced Animal AI
-- **Flee Mechanic**: Rabbits and Partridges detect the player's presence within 10 meters and flee in the opposite direction.
-- **Hunting**: Target animals to harvest **Meat** for sustenance.
+## 🌟 Yeni Özellikler (v6.4.0)
 
-### 🌡️ Advanced Thermodynamics System
-- **Real-time Cycles**: Ambient temperature peaks at 14:00 and hits freezing at 04:00.
-- **Heat Radius**: Campfires and Shelters provide life-saving warmth.
+### 🔦 Güçlendirilmiş Meşale Sistemi
+- **Gelişmiş Aydınlatma:** Meşale artık gece karanlığında yaklaşık 5-10 metrelik bir alanı net şekilde aydınlatır.
+- **Işık Dinamiği:** Elinizde meşale varken çevre objeler artık gerçek zamanlı gölge üretir.
 
-### 🧭 Navigation & UI
-- **Compass System**: Integrated compass in the status panel shows cardinal directions and player rotation.
-- **Cinematic Skies**: Smoothly transitioning sun and moon based on the 2400-hour game clock.
+### 🌿 Dinamik Kaynak Yenilenmesi (Daily Spawning)
+- **Ekosistem Döngüsü:** Her yeni günün başında haritaya otomatik olarak 10 adet ağaç, çalı ve kaya eklenir. 
+- **Merkez Odaklı Yayılım:** Kaynaklar haritanın merkezindeki yoğun ormana yakın bölgelerde daha sık belirir.
 
-### 🛠️ Crafting & Construction
-- **Unified Gathering**: Simplified resource slots for Fruits (Apples, Pears, Berries).
-- **Smooth Feedback**: Interactive objects vibrate and shake when hit, providing tactical visual feedback.
-- **Shelters**: Construct permanent bases to safely sleep and restore energy.
+### ⚠️ Kritik Durum Uyarı Sistemi
+- **Panel İkazı:** Açlık, susuzluk veya enerji %20'nin altına düştüğünde ekranın üst kısmında kırmızı bir "CRITICAL STATE" ikazı belirir.
+- **Isınma Sistemi:** Artık barınakların tier seviyesi (Çadır < Kulübe < Ev) ısınma hızınızı ve gece soğuğuna karşı direncinizi doğrudan etkiler.
 
-## 🎮 Controls
+### 🌑 Minimalist Astronomi
+- **Beyaz Daire Tasarımı:** Güneş ve Ay, stilize edilmiş beyaz diskler olarak gökyüzünde süzülür.
+- **Yıldızlar:** Tüm yıldız alanları saf beyaz olarak güncellendi.
 
-| Key | Action |
+## 🎮 Kontroller
+
+| Tuş | Eylem |
 |-----|--------|
-| **WASD** | Movement |
-| **Space** | Jump |
-| **Shift** | Sprint |
-| **Left Click / E** | Interact / Gather / Hunt |
-| **TAB / C** | Open Crafting Menu |
-| **1 - 7** | Hotbar Shortcuts |
-| **ESC** | Main Menu (Pauses Game) |
+| **WASD** | Hareket |
+| **Boşluk** | Zıplama |
+| **Shift** | Koşma (Sprint) |
+| **Sol Tık** | **OK AT** (Yay aktifse) / Envanter Kullanımı |
+| **E** | Etkileşim / Topla / Kullan |
+| **TAB / C** | Üretim Menüsü |
+| **1 - 7** | Kısayol Slotları (Farenizle tıklayarak da kullanabilirsiniz) |
+| **ESC** | Menü / Duraklat |
 
 ---
-*Developed by a Senior Frontend Engineer. Optimized for modern browsers.*
+*Senior Frontend Engineer tarafından geliştirildi. Modern tarayıcılar için optimize edildi.*

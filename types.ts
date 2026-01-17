@@ -37,11 +37,13 @@ export interface ShelterData {
   x: number;
   z: number;
   rotation: number;
+  tier: number; // 1: Tent, 2: Hut, 3: House
 }
 
 export interface GameState {
   stats: PlayerStats;
   inventory: InventoryItem[];
+  xp: number;
   day: number;
   time: number;
   settings: GameSettings;
