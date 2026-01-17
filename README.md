@@ -29,9 +29,10 @@ WILD LANDS, **React 19**, **Three.js** ve **Tailwind CSS** kullanılarak gelişt
 | **Boşluk** | Zıplama |
 | **Shift** | Koşma (Sprint) |
 | **Sol Tık** | **OK AT** (Yay aktifse) / Envanter Kullanımı |
+| **Sağ Tık** | **Zoom** Yumuşak geçişli zoom in out |
 | **E** | Etkileşim / Topla / Kullan |
 | **TAB / C** | Üretim Menüsü |
-| **1 - 7** | Kısayol Slotları (Farenizle tıklayarak da kullanabilirsiniz) |
+| **1 - 9** | Kısayol Slotları (Farenizle tıklayarak da kullanabilirsiniz) |
 | **ESC** | Menü / Duraklat |
 
 ---
